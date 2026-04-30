@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:async';
 import 'core/theme.dart';
 import 'core/services.dart';
 import 'core/fcm_service.dart';
 import 'core/phoenix_socket.dart';
 import 'core/me_provider.dart';
 import 'core/queries.dart';
+import 'core/cloudinary_service.dart';
+import 'features/discover/search_screen.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/feed/clip_card.dart';
 import 'features/auth/login_screen.dart';
@@ -70,6 +75,7 @@ class _VoxaAppState extends State<VoxaApp> {
         routes: [
           GoRoute(path: '/', builder: (_, __) => const FeedScreen()),
           GoRoute(path: '/discover', builder: (_, __) => const DiscoverScreen()),
+          GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
           GoRoute(path: '/circles', builder: (_, __) => const CirclesScreen()),
           GoRoute(path: '/circles/:id', builder: (_, s) => CircleDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
@@ -199,6 +205,20 @@ class _ClipDetailScreenState extends State<ClipDetailScreen> {
     });
   }
 
+  void _showReplySheet({bool isWhisper = false}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ReplySheet(
+        postId: widget.id,
+        isWhisper: isWhisper,
+        onSent: () { Navigator.pop(context); _load(); },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
@@ -208,7 +228,180 @@ class _ClipDetailScreenState extends State<ClipDetailScreen> {
       appBar: AppBar(title: Text(_clip!['user']?['name'] ?? '')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        child: ClipCard(clip: _clip!),
+        child: Column(
+          children: [
+            ClipCard(
+              clip: _clip!,
+              onReply: () => _showReplySheet(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showReplySheet(),
+                    icon: const Icon(Icons.mic_rounded, size: 18),
+                    label: const Text('Reply'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showReplySheet(isWhisper: true),
+                    icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+                    label: const Text('Whisper'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.textMuted,
+                      side: const BorderSide(color: AppTheme.border),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for recording a reply or whisper (spec 9.1, 9.2)
+class _ReplySheet extends StatefulWidget {
+  final String postId;
+  final bool isWhisper;
+  final VoidCallback onSent;
+  const _ReplySheet({required this.postId, required this.isWhisper, required this.onSent});
+
+  @override
+  State<_ReplySheet> createState() => _ReplySheetState();
+}
+
+class _ReplySheetState extends State<_ReplySheet> {
+  final _recorder = AudioRecorder();
+  bool _isRecording = false;
+  bool _uploading = false;
+  String? _filePath;
+  Duration _elapsed = Duration.zero;
+  Timer? _timer;
+  final List<double> _waveform = [];
+  String? _error;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _recorder.dispose();
+    super.dispose();
+  }
+
+  Future<void> _start() async {
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) { setState(() => _error = 'Mic permission denied'); return; }
+    final dir = await getTemporaryDirectory();
+    final path = '${dir.path}/reply_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
+      final amp = await _recorder.getAmplitude();
+      final v = ((amp.current + 60) / 60).clamp(0.0, 1.0);
+      if (mounted) setState(() {
+        _waveform.add(v);
+        if (_waveform.length % 10 == 0) _elapsed += const Duration(seconds: 1);
+        if (_elapsed.inSeconds >= 180) _stop();
+      });
+    });
+    setState(() { _isRecording = true; _filePath = path; _elapsed = Duration.zero; _waveform.clear(); });
+  }
+
+  Future<void> _stop() async {
+    _timer?.cancel();
+    await _recorder.stop();
+    setState(() => _isRecording = false);
+  }
+
+  Future<void> _send() async {
+    if (_filePath == null) return;
+    setState(() { _uploading = true; _error = null; });
+    try {
+      final client = GraphQLProvider.of(context).value;
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, client);
+      final step = _waveform.length / 48;
+      final waveformData = List.generate(48, (i) => _waveform[(i * step).floor().clamp(0, _waveform.length - 1)]);
+      final result = await client.mutate(MutationOptions(
+        document: gql(kCreateReply),
+        variables: {
+          'postId': widget.postId,
+          'audioUrl': cloudinary['url'],
+          'cloudinaryPublicId': cloudinary['publicId'],
+          'waveformData': waveformData,
+          'durationSeconds': _elapsed.inSeconds,
+          'isWhisper': widget.isWhisper,
+        },
+      ));
+      if (!mounted) return;
+      if (result.hasException) {
+        setState(() { _error = 'Failed to send. Try again.'; _uploading = false; });
+        return;
+      }
+      widget.onSent();
+    } catch (e) {
+      setState(() { _error = 'Error: $e'; _uploading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(widget.isWhisper ? 'Send a Whisper' : 'Reply with voice',
+            style: Theme.of(context).textTheme.titleLarge),
+          if (widget.isWhisper)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text('Only the poster will hear this', style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: _isRecording ? _stop : (_filePath == null ? _start : null),
+            child: Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _isRecording ? Colors.red : AppTheme.accent,
+              ),
+              child: Icon(_isRecording ? Icons.stop_rounded : Icons.mic_rounded, color: Colors.white, size: 32),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _isRecording
+                ? '${_elapsed.inSeconds}s recording...'
+                : _filePath != null ? 'Recorded ✓' : 'Tap to record',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+          ],
+          if (_filePath != null && !_isRecording) ...[
+            const SizedBox(height: 16),
+            Row(children: [
+              Expanded(child: OutlinedButton(
+                onPressed: () => setState(() { _filePath = null; _waveform.clear(); _elapsed = Duration.zero; }),
+                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.textMuted, side: const BorderSide(color: AppTheme.border)),
+                child: const Text('Redo'),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: ElevatedButton(
+                onPressed: _uploading ? null : _send,
+                child: _uploading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(widget.isWhisper ? 'Send Whisper' : 'Send Reply'),
+              )),
+            ]),
+          ],
+        ],
       ),
     );
   }

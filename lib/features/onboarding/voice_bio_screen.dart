@@ -49,7 +49,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
       final normalized = ((amp.current + 60) / 60).clamp(0.0, 1.0);
       if (mounted) setState(() {
         _waveform.add(normalized);
-        if (_waveform.length % 10 == 0) _elapsed += const Duration(seconds: 1);
+        _elapsed += const Duration(milliseconds: 100);
         if (_elapsed.inSeconds >= _maxSeconds) _stopRecording();
       });
     });

@@ -3,6 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/me_provider.dart';
 import 'audio_player_widget.dart';
 
 class ClipCard extends StatelessWidget {
@@ -123,6 +124,8 @@ class ClipCard extends StatelessWidget {
                       ],
                       const SizedBox(width: 4),
                       Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
+                      // Own clip actions
+                      _OwnClipActions(clip: clip),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -252,6 +255,79 @@ class _PulseBtnState extends State<_PulseBtn> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Shows preserve/delete for own clips only (spec 4.3, 9.3)
+class _OwnClipActions extends StatelessWidget {
+  final Map<String, dynamic> clip;
+  const _OwnClipActions({required this.clip});
+
+  Future<void> _preserve(BuildContext context) async {
+    final client = GraphQLProvider.of(context).value;
+    final result = await client.mutate(MutationOptions(
+      document: gql(kPreservePost),
+      variables: {'id': clip['id']},
+    ));
+    if (!context.mounted) return;
+    if (result.hasException) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Voice preserved ✓')),
+      );
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Delete clip?'),
+        content: const Text('This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirm != true || !context.mounted) return;
+    final client = GraphQLProvider.of(context).value;
+    await client.mutate(MutationOptions(
+      document: gql(kDeleteClip),
+      variables: {'id': clip['id']},
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final me = MeProvider.of(context);
+    if (me == null) return const SizedBox.shrink();
+    final isOwn = me['id'] == clip['user']?['id'];
+    if (!isOwn) return const SizedBox.shrink();
+
+    final isEmbers = me['isEmbers'] as bool? ?? false;
+    final hasExpiry = clip['expiresAt'] != null;
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_horiz, size: 18, color: AppTheme.textMuted),
+      color: AppTheme.surface,
+      onSelected: (v) {
+        if (v == 'preserve') _preserve(context);
+        if (v == 'delete') _delete(context);
+      },
+      itemBuilder: (_) => [
+        if (isEmbers && hasExpiry)
+          const PopupMenuItem(value: 'preserve', child: Text('Preserve voice')),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
@@ -31,21 +32,19 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       final cached = await FeedCache.load();
       if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
       _load();
-      _subscribeSocket();
     });
   }
 
   void _subscribeSocket() {
     final me = MeProvider.of(context);
-    if (me == null) return;
+    if (me == null || _feedSub != null) return; // not ready or already subscribed
     final userId = me['id'] as String?;
     if (userId == null) return;
     _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
       if (!mounted) return;
-      if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
-        _load(); // Reload feed on new post
-      } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
-        _load(); // Remove expired posts
+      if (event['event'] == 'new_post' || event['event'] == 'new_clip' ||
+          event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
+        _load();
       }
     });
   }
@@ -61,6 +60,8 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   void didChangeDependencies() {
     super.didChangeDependencies();
     final me = MeProvider.of(context);
+    // Subscribe socket once MeProvider has data
+    _subscribeSocket();
     final showEmber = _checkEmberFeed(me);
     if (showEmber != _showEmber) {
       setState(() {
@@ -135,6 +136,12 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
             const VoxaLogo(fontSize: 20),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () => context.push('/search'),
+          ),
+        ],
         bottom: TabBar(
           controller: tabs,
           indicatorColor: AppTheme.accent,
