@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../feed/clip_card.dart';
@@ -17,6 +18,19 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _clips = [];
   bool _loading = false;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () => _search(q));
+  }
 
   Future<void> _search(String q) async {
     if (q.trim().isEmpty) {
@@ -41,12 +55,6 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +66,7 @@ class _SearchScreenState extends State<SearchScreen> {
             border: InputBorder.none,
             contentPadding: EdgeInsets.zero,
           ),
-          onChanged: _search,
+          onChanged: _onChanged,
         ),
       ),
       body: _loading

@@ -27,19 +27,29 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
   final List<double> _waveform = [];
   late AnimationController _pulseController;
   String? _topic;
+  String? _circleId;
   String? _error;
+  List<Map<String, dynamic>> _circles = [];
 
   static const _topics = ['General', 'Music', 'Comedy', 'News', 'Tech', 'Sports', 'Education', 'Other'];
 
   int get _maxSeconds {
     final me = MeProvider.of(context);
-    return (me?['isEmbers'] as bool? ?? false) ? 300 : 180; // 5min Embers, 3min standard
+    return (me?['isEmbers'] as bool? ?? false) ? 300 : 180;
   }
 
   @override
   void initState() {
     super.initState();
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCircles());
+  }
+
+  Future<void> _loadCircles() async {
+    final client = GraphQLProvider.of(context).value;
+    final result = await client.query(QueryOptions(document: gql(kMyCircles), fetchPolicy: FetchPolicy.networkOnly));
+    if (!mounted || result.hasException) return;
+    setState(() => _circles = (result.data!['myCircles'] as List).cast<Map<String, dynamic>>());
   }
 
   @override
@@ -97,6 +107,7 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
           'durationSeconds': _elapsed.inSeconds,
           'category': _topic ?? 'General',
           'mood': null,
+          'circleId': _circleId,
         },
       ));
       if (!mounted) return;
@@ -172,6 +183,26 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
                   )).toList(),
                 ),
                 const SizedBox(height: 32),
+              ],
+              // Circle selector (spec 9.5)
+              if (!_isRecording && _filePath != null && _circles.isNotEmpty) ...[
+                DropdownButtonFormField<String>(
+                  value: _circleId,
+                  decoration: InputDecoration(
+                    hintText: 'Post to a circle (optional)',
+                    filled: true,
+                    fillColor: AppTheme.surface,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.border)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppTheme.border)),
+                  ),
+                  dropdownColor: AppTheme.surface,
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('No circle (public)')),
+                    ..._circles.map((c) => DropdownMenuItem(value: c['id'] as String, child: Text(c['name'] as String))),
+                  ],
+                  onChanged: (v) => setState(() => _circleId = v),
+                ),
+                const SizedBox(height: 16),
               ],
               if (_error != null) ...[
                 Text(_error!, style: const TextStyle(color: Colors.redAccent)),

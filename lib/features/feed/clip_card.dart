@@ -48,8 +48,8 @@ class _ClipCardState extends State<ClipCard> {
     final clip = widget.clip;
     final user = clip['user'] as Map<String, dynamic>;
     final waveformRaw = clip['waveform'] as String?;
-    final waveform = waveformRaw != null
-        ? waveformRaw.split(',').map((e) => double.tryParse(e) ?? 0.0).toList()
+    final waveform = waveformRaw != null && waveformRaw.isNotEmpty
+        ? waveformRaw.split(',').map((e) => (double.tryParse(e) ?? 0.0) / 100.0).toList()
         : null;
     final expiryLabel = _expiryLabel(clip['expiresAt'] as String?);
 

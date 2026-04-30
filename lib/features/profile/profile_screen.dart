@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
+import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/me_provider.dart';
@@ -209,6 +210,13 @@ class _BioBanner extends StatefulWidget {
 
 class _BioBannerState extends State<_BioBanner> {
   bool _playing = false;
+  StreamSubscription? _sub;
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 
   Future<void> _toggle() async {
     if (_playing) {
@@ -220,9 +228,13 @@ class _BioBannerState extends State<_BioBanner> {
       }
       await widget.player.play();
       setState(() => _playing = true);
-      widget.player.playerStateStream.firstWhere(
-        (s) => s.processingState == ProcessingState.completed,
-      ).then((_) { if (mounted) setState(() => _playing = false); });
+      _sub?.cancel();
+      _sub = widget.player.playerStateStream.listen((s) {
+        if (s.processingState == ProcessingState.completed && mounted) {
+          setState(() => _playing = false);
+          _sub?.cancel();
+        }
+      });
     }
   }
 

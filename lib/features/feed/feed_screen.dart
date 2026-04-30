@@ -28,6 +28,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: 2, vsync: this); // initialized early, updated in didChangeDependencies
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final cached = await FeedCache.load();
       if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
@@ -110,7 +111,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final tabs = _tabs ?? TabController(length: 2, vsync: this);
+    final tabs = _tabs!;
     final tabList = <Tab>[
       const Tab(text: 'For You'),
       const Tab(text: 'Following'),
@@ -150,9 +151,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           tabs: tabList,
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
-          : RefreshIndicator(
+      body: RefreshIndicator(
               color: AppTheme.accent,
               backgroundColor: AppTheme.surface,
               onRefresh: _load,

@@ -23,7 +23,6 @@ query Me {
 }
 ''';
 
-// Feed — no page arg, uses limit
 const String kFeed = r'''
 query Feed {
   feed {
