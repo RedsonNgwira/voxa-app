@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
-
 class SplashScreen extends StatefulWidget {
   final VoidCallback onDone;
   const SplashScreen({super.key, required this.onDone});
@@ -37,9 +36,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: const Icon(Icons.mic_rounded, color: Colors.white, size: 40),
             ),
             const SizedBox(height: 20),
-            Text('Voxa', style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-              fontSize: 36, letterSpacing: 1,
-            )),
+            const VoxaLogo(fontSize: 36),
             const SizedBox(height: 8),
             Text('Where your voice actually matters',
               style: Theme.of(context).textTheme.bodyMedium,

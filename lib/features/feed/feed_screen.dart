@@ -5,7 +5,6 @@ import '../../core/theme.dart';
 import '../../core/services.dart';
 import '../../core/me_provider.dart';
 import 'clip_card.dart';
-
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -113,7 +112,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               child: const Icon(Icons.mic_rounded, color: Colors.white, size: 14),
             ),
             const SizedBox(width: 8),
-            const Text('Voxa'),
+            const VoxaLogo(fontSize: 20),
           ],
         ),
         bottom: TabBar(
