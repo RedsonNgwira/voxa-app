@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:378090228118:android:12dbf9d9fc779eaa8235b7",
+        "mobilesdk_app_id": "1:378090228118:android:210c05139b8761178235b7",
         "android_client_info": {
-          "package_name": "com.voxa.app"
+          "package_name": "com.redson.voxa_app"
         }
       },
       "oauth_client": [],
