@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:record/record.dart';
@@ -8,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/cloudinary_service.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -74,30 +73,39 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
     if (_filePath == null) return;
     setState(() { _uploading = true; _error = null; });
     try {
-      final bytes = await File(_filePath!).readAsBytes();
-      final b64 = base64Encode(bytes);
-      final audioData = 'data:audio/m4a;base64,$b64';
+      // Upload directly to Cloudinary (spec 11.1)
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
+
+      // Normalize waveform to 48 values (spec 11.1)
+      final waveformData = _normalizeWaveform(_waveform, 48);
+
       final client = GraphQLProvider.of(context).value;
       final result = await client.mutate(MutationOptions(
         document: gql(kCreateClip),
         variables: {
-          'audioData': audioData,
-          'duration': _elapsed.inSeconds,
-          'topic': _topic,
-          'waveform': _waveform.length > 100
-              ? _waveform.sublist(0, 100)
-              : _waveform,
+          'audioUrl': cloudinary['url'],
+          'cloudinaryPublicId': cloudinary['publicId'],
+          'waveformData': waveformData,
+          'durationSeconds': _elapsed.inSeconds,
+          'category': _topic ?? 'General',
+          'mood': null,
         },
       ));
       if (!mounted) return;
       if (result.hasException) {
-        setState(() { _error = 'Upload failed. Try again.'; _uploading = false; });
+        setState(() { _error = 'Post failed. Try again.'; _uploading = false; });
         return;
       }
       context.go('/');
     } catch (e) {
       setState(() { _error = 'Upload failed: $e'; _uploading = false; });
     }
+  }
+
+  List<double> _normalizeWaveform(List<double> raw, int targetCount) {
+    if (raw.isEmpty) return List.filled(targetCount, 0.0);
+    final step = raw.length / targetCount;
+    return List.generate(targetCount, (i) => raw[(i * step).floor().clamp(0, raw.length - 1)]);
   }
 
   String _fmt(Duration d) {

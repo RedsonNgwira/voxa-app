@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../feed/clip_card.dart';
@@ -42,9 +41,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_user == null) return;
     final isFollowing = _user!['isFollowing'] as bool? ?? false;
     final client = GraphQLProvider.of(context).value;
+    // Follow/unfollow uses userId per spec
     await client.mutate(MutationOptions(
       document: gql(isFollowing ? kUnfollow : kFollow),
-      variables: {'username': widget.username},
+      variables: {'userId': _user!['id']},
     ));
     await _load();
   }
@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200,
+            expandedHeight: 180,
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -74,11 +74,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const SizedBox(height: 40),
                     CircleAvatar(
-                      radius: 40,
+                      radius: 36,
                       backgroundColor: AppTheme.accent.withOpacity(0.2),
                       child: Text(
                         (_user!['name'] ?? _user!['username'] ?? '?')[0].toUpperCase(),
-                        style: const TextStyle(color: AppTheme.accent, fontSize: 32, fontWeight: FontWeight.w700),
+                        style: const TextStyle(color: AppTheme.accent, fontSize: 28, fontWeight: FontWeight.w700),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -94,13 +94,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Stats + follow
+                  // Clips count only — no follower counts per RULE_001
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _Stat(label: 'Clips', value: '${_clips.length}'),
-                      _Stat(label: 'Followers', value: '${_user!['followerCount'] ?? 0}'),
-                      _Stat(label: 'Following', value: '${_user!['followingCount'] ?? 0}'),
                     ],
                   ),
                   const SizedBox(height: 16),

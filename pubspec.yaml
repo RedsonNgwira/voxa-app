@@ -40,6 +40,8 @@ dependencies:
   just_audio: ^0.10.5
   record: ^6.2.0
   path_provider: ^2.1.5
+  http: ^1.2.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

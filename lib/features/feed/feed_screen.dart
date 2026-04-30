@@ -11,56 +11,39 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen> {
-  final _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _clips = [];
-  int _page = 1;
+class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabs;
+  List<Map<String, dynamic>> _forYou = [];
+  List<Map<String, dynamic>> _following = [];
   bool _loading = false;
-  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
+    _tabs = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _tabs.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || !_hasMore) return;
+  Future<void> _load() async {
+    if (_loading) return;
     setState(() => _loading = true);
     final client = GraphQLProvider.of(context).value;
-    final result = await client.query(QueryOptions(
-      document: gql(kFeed),
-      variables: {'page': _page},
-      fetchPolicy: FetchPolicy.networkOnly,
-    ));
+    final results = await Future.wait([
+      client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)),
+      client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
+    ]);
     if (!mounted) return;
-    if (!result.hasException) {
-      final newClips = (result.data!['feed'] as List).cast<Map<String, dynamic>>();
-      setState(() {
-        _clips.addAll(newClips);
-        _page++;
-        _hasMore = newClips.length == 20;
-      });
-    }
-    setState(() => _loading = false);
-  }
-
-  Future<void> _refresh() async {
-    setState(() { _clips.clear(); _page = 1; _hasMore = true; });
-    await _loadMore();
+    setState(() {
+      if (!results[0].hasException) _forYou = (results[0].data!['feed'] as List).cast<Map<String, dynamic>>();
+      if (!results[1].hasException) _following = (results[1].data!['followingFeed'] as List).cast<Map<String, dynamic>>();
+      _loading = false;
+    });
   }
 
   @override
@@ -71,49 +54,65 @@ class _FeedScreenState extends State<FeedScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 28, height: 28,
+              width: 26, height: 26,
               decoration: BoxDecoration(color: AppTheme.accent, borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 16),
+              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 14),
             ),
             const SizedBox(width: 8),
             const Text('Voxa'),
           ],
         ),
+        bottom: TabBar(
+          controller: _tabs,
+          indicatorColor: AppTheme.accent,
+          labelColor: AppTheme.accent,
+          unselectedLabelColor: AppTheme.textMuted,
+          tabs: const [
+            Tab(text: 'For You'),
+            Tab(text: 'Following'),
+          ],
+        ),
       ),
-      body: RefreshIndicator(
-        color: AppTheme.accent,
-        backgroundColor: AppTheme.surface,
-        onRefresh: _refresh,
-        child: _clips.isEmpty && _loading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
-            : _clips.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.mic_none_rounded, size: 64, color: AppTheme.textMuted),
-                        const SizedBox(height: 16),
-                        Text('No clips yet', style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        Text('Follow people to see their clips', style: Theme.of(context).textTheme.bodyMedium),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: _clips.length + (_loading ? 1 : 0),
-                    itemBuilder: (context, i) {
-                      if (i == _clips.length) {
-                        return const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Center(child: CircularProgressIndicator(color: AppTheme.accent, strokeWidth: 2)),
-                        );
-                      }
-                      return ClipCard(clip: _clips[i]);
-                    },
-                  ),
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
+          : RefreshIndicator(
+              color: AppTheme.accent,
+              backgroundColor: AppTheme.surface,
+              onRefresh: _load,
+              child: TabBarView(
+                controller: _tabs,
+                children: [
+                  _ClipList(clips: _forYou),
+                  _ClipList(clips: _following),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _ClipList extends StatelessWidget {
+  final List<Map<String, dynamic>> clips;
+  const _ClipList({required this.clips});
+
+  @override
+  Widget build(BuildContext context) {
+    if (clips.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
+            const SizedBox(height: 12),
+            Text('No voices yet', style: Theme.of(context).textTheme.titleMedium),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: clips.length,
+      itemBuilder: (_, i) => ClipCard(clip: clips[i]),
     );
   }
 }

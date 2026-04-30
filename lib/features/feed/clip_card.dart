@@ -11,7 +11,8 @@ class ClipCard extends StatelessWidget {
 
   const ClipCard({super.key, required this.clip, this.onReply});
 
-  String _timeAgo(String insertedAt) {
+  String _timeAgo(String? insertedAt) {
+    if (insertedAt == null) return '';
     try {
       final dt = DateTime.parse(insertedAt.replaceAll(' ', 'T'));
       final diff = DateTime.now().difference(dt);
@@ -23,16 +24,29 @@ class ClipCard extends StatelessWidget {
     } catch (_) { return ''; }
   }
 
+  String? _expiryLabel(String? expiresAt) {
+    if (expiresAt == null) return null;
+    try {
+      final dt = DateTime.parse(expiresAt.replaceAll(' ', 'T'));
+      final hoursLeft = dt.difference(DateTime.now()).inHours;
+      if (hoursLeft <= 0) return null;
+      return '${hoursLeft}h left';
+    } catch (_) { return null; }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = clip['user'] as Map<String, dynamic>;
-    final waveform = (clip['waveform'] as List?)?.map((e) => (e as num).toDouble()).toList();
+    final waveformRaw = clip['waveform'] as String?;
+    final waveform = waveformRaw != null
+        ? waveformRaw.split(',').map((e) => double.tryParse(e) ?? 0.0).toList()
+        : null;
+    final expiryLabel = _expiryLabel(clip['expiresAt'] as String?);
 
     return GestureDetector(
       onTap: () => context.push('/clip/${clip['id']}'),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppTheme.card,
           borderRadius: BorderRadius.circular(16),
@@ -41,71 +55,114 @@ class ClipCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () => context.push('/profile/${user['username']}'),
-                  child: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: AppTheme.accent.withOpacity(0.2),
-                    child: Text(
-                      (user['name'] ?? user['username'] ?? '?')[0].toUpperCase(),
-                      style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700),
-                    ),
-                  ),
+            // Expiry bar at top of card (spec 7.5)
+            if (expiryLabel != null)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: LinearProgressIndicator(
+                  value: _expiryProgress(clip['expiresAt'] as String?),
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent.withOpacity(0.6)),
+                  minHeight: 2,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
                     children: [
-                      Text(user['name'] ?? user['username'] ?? '', style: Theme.of(context).textTheme.titleMedium),
-                      Text('@${user['username'] ?? ''}', style: Theme.of(context).textTheme.bodyMedium),
+                      GestureDetector(
+                        onTap: () => context.push('/profile/${user['username']}'),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppTheme.accent.withOpacity(0.2),
+                          child: Text(
+                            (user['name'] ?? user['username'] ?? '?')[0].toUpperCase(),
+                            style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(user['name'] ?? user['username'] ?? '', style: Theme.of(context).textTheme.titleMedium),
+                            Text('@${user['username'] ?? ''}', style: Theme.of(context).textTheme.bodyMedium),
+                          ],
+                        ),
+                      ),
+                      if (clip['topic'] != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(clip['topic'], style: const TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.w600)),
+                        ),
+                      const SizedBox(width: 8),
+                      // Expiry tag (spec 7.5: "Nh left")
+                      if (expiryLabel != null) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
+                          ),
+                          child: Text(expiryLabel, style: TextStyle(color: AppTheme.accent, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                      const SizedBox(width: 4),
+                      Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
                     ],
                   ),
-                ),
-                if (clip['topic'] != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accent.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(clip['topic'], style: const TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 14),
+                  // Audio player
+                  AudioPlayerWidget(
+                    url: clip['audioPath'] ?? '',
+                    waveform: waveform,
+                    duration: clip['duration'] as int?,
                   ),
-                const SizedBox(width: 8),
-                Text(_timeAgo(clip['insertedAt'] ?? ''), style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-            const SizedBox(height: 14),
-            // Audio player
-            AudioPlayerWidget(
-              url: clip['audioPath'] ?? '',
-              waveform: waveform,
-              duration: clip['duration'] as int?,
-            ),
-            const SizedBox(height: 14),
-            // Actions
-            Row(
-              children: [
-                _ActionBtn(
-                  icon: Icons.reply_rounded,
-                  count: clip['repliesCount'] ?? 0,
-                  onTap: onReply ?? () => context.push('/clip/${clip['id']}'),
-                ),
-                const SizedBox(width: 20),
-                _ReactBtn(clipId: clip['id'], type: 'echo', icon: Icons.repeat_rounded, count: clip['echoCount'] ?? 0),
-                const SizedBox(width: 20),
-                _ReactBtn(clipId: clip['id'], type: 'felt', icon: Icons.favorite_border_rounded, count: clip['feltCount'] ?? 0),
-                const Spacer(),
-                Text('${clip['playsCount'] ?? 0} plays', style: Theme.of(context).textTheme.bodyMedium),
-              ],
+                  const SizedBox(height: 12),
+                  // Actions row
+                  Row(
+                    children: [
+                      // Reply
+                      _ActionBtn(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        count: clip['repliesCount'] ?? 0,
+                        onTap: onReply ?? () => context.push('/clip/${clip['id']}'),
+                      ),
+                      const Spacer(),
+                      // Pulse button — no count shown (RULE_003)
+                      _PulseBtn(
+                        clipId: clip['id'] as String,
+                        hasPulsed: clip['hasPulsed'] as bool? ?? false,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  double? _expiryProgress(String? expiresAt) {
+    if (expiresAt == null) return null;
+    try {
+      final dt = DateTime.parse(expiresAt.replaceAll(' ', 'T'));
+      final hoursLeft = dt.difference(DateTime.now()).inHours;
+      return (hoursLeft / 72).clamp(0.0, 1.0);
+    } catch (_) { return null; }
   }
 }
 
@@ -131,52 +188,57 @@ class _ActionBtn extends StatelessWidget {
   }
 }
 
-class _ReactBtn extends StatefulWidget {
+// Pulse button — anonymous, no count (RULE_003)
+class _PulseBtn extends StatefulWidget {
   final String clipId;
-  final String type;
-  final IconData icon;
-  final int count;
+  final bool hasPulsed;
 
-  const _ReactBtn({required this.clipId, required this.type, required this.icon, required this.count});
+  const _PulseBtn({required this.clipId, required this.hasPulsed});
 
   @override
-  State<_ReactBtn> createState() => _ReactBtnState();
+  State<_PulseBtn> createState() => _PulseBtnState();
 }
 
-class _ReactBtnState extends State<_ReactBtn> {
-  late int _count;
-  bool _reacted = false;
+class _PulseBtnState extends State<_PulseBtn> {
+  late bool _pulsed;
 
   @override
   void initState() {
     super.initState();
-    _count = widget.count;
+    _pulsed = widget.hasPulsed;
   }
 
-  Future<void> _react() async {
+  Future<void> _pulse() async {
+    if (_pulsed) return; // Cannot un-pulse per spec
     final client = GraphQLProvider.of(context).value;
     final result = await client.mutate(MutationOptions(
-      document: gql(kReact),
-      variables: {'clipId': widget.clipId, 'type': widget.type},
+      document: gql(kPulse),
+      variables: {'postId': widget.clipId},
     ));
-    if (result.hasException || !mounted) return;
-    final data = result.data!['react'];
-    setState(() {
-      _reacted = data['reacted'] as bool;
-      _count = (widget.type == 'echo' ? data['echoCount'] : data['feltCount']) as int;
-    });
+    if (!result.hasException && mounted) {
+      setState(() => _pulsed = true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _react,
-      child: Row(
-        children: [
-          Icon(widget.icon, size: 18, color: _reacted ? AppTheme.accent : AppTheme.textMuted),
-          const SizedBox(width: 4),
-          Text('$_count', style: TextStyle(color: _reacted ? AppTheme.accent : AppTheme.textMuted, fontSize: 13)),
-        ],
+      onTap: _pulse,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: _pulsed ? AppTheme.accent.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _pulsed ? AppTheme.accent.withOpacity(0.4) : AppTheme.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.show_chart_rounded, size: 16, color: _pulsed ? AppTheme.accent : AppTheme.textMuted),
+            // No count shown — RULE_003
+          ],
+        ),
       ),
     );
   }
