@@ -135,7 +135,10 @@ class MainShell extends StatelessWidget {
               case 1: context.go('/discover');
               case 2: context.go('/circles');
               case 3: context.go('/notifications');
-              case 4: context.go('/profile/me');
+              case 4:
+                final me = MeProvider.of(context);
+                final username = me?['username'] as String? ?? 'me';
+                context.go('/profile/$username');
             }
           },
           items: const [
@@ -147,14 +150,17 @@ class MainShell extends StatelessWidget {
           ],
         ),
       ),
-      // Center FAB for record (spec 7.4)
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/record'),
-        backgroundColor: AppTheme.accent,
-        elevation: 4,
-        child: const Icon(Icons.mic_rounded, color: Colors.white),
+      // Record FAB (spec 7.4)
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: FloatingActionButton(
+          onPressed: () => context.push('/record'),
+          backgroundColor: AppTheme.accent,
+          elevation: 4,
+          child: const Icon(Icons.mic_rounded, color: Colors.white),
+        ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }

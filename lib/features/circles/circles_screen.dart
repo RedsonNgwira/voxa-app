@@ -37,10 +37,17 @@ class _CirclesScreenState extends State<CirclesScreen> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
     final client = GraphQLProvider.of(context).value;
-    await client.mutate(MutationOptions(
+    final result = await client.mutate(MutationOptions(
       document: gql(kCreateCircle),
       variables: {'name': name, 'isPrivate': false},
     ));
+    if (!mounted) return;
+    if (result.hasException) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: ${result.exception?.graphqlErrors.firstOrNull?.message ?? 'Unknown error'}')),
+      );
+      return;
+    }
     _nameController.clear();
     Navigator.pop(context);
     _load();
@@ -61,6 +68,7 @@ class _CirclesScreenState extends State<CirclesScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
