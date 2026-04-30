@@ -6,6 +6,7 @@ import 'core/theme.dart';
 import 'core/services.dart';
 import 'core/fcm_service.dart';
 import 'core/phoenix_socket.dart';
+import 'core/me_provider.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -63,7 +64,7 @@ class _VoxaAppState extends State<VoxaApp> {
       GoRoute(path: '/register', builder: (_, __) => RegisterScreen(auth: widget.auth)),
       GoRoute(path: '/voice-bio', builder: (_, __) => const VoiceBioScreen()),
       ShellRoute(
-        builder: (_, __, child) => MainShell(child: child),
+        builder: (_, __, child) => MeLoader(child: MainShell(child: child)),
         routes: [
           GoRoute(path: '/', builder: (_, __) => const FeedScreen()),
           GoRoute(path: '/discover', builder: (_, __) => const DiscoverScreen()),

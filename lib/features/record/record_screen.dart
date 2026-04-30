@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/cloudinary_service.dart';
+import '../../core/me_provider.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -28,6 +29,11 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
   String? _error;
 
   static const _topics = ['General', 'Music', 'Comedy', 'News', 'Tech', 'Sports', 'Education', 'Other'];
+
+  int get _maxSeconds {
+    final me = MeProvider.of(context);
+    return (me?['isEmbers'] as bool? ?? false) ? 300 : 180; // 5min Embers, 3min standard
+  }
 
   @override
   void initState() {
@@ -58,6 +64,8 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
       if (mounted) setState(() {
         _waveform.add(normalized);
         if (_waveform.length % 10 == 0) _elapsed += const Duration(milliseconds: 100) * 10;
+        // Enforce duration limit (spec 7.6: 3min standard, 5min Embers)
+        if (_elapsed.inSeconds >= _maxSeconds) _stopRecording();
       });
     });
     setState(() { _isRecording = true; _filePath = path; _elapsed = Duration.zero; _waveform.clear(); });

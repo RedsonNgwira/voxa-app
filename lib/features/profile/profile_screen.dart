@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/me_provider.dart';
 import '../feed/clip_card.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -16,11 +18,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   List<Map<String, dynamic>> _clips = [];
   bool _loading = true;
+  final _bioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _bioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -35,6 +44,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!results[1].hasException) _clips = (results[1].data!['userClips'] as List).cast<Map<String, dynamic>>();
       _loading = false;
     });
+
+    // Auto-play voice bio 3s for other users (spec 7.11)
+    final me = MeProvider.of(context);
+    final bioUrl = _user?['voiceBioPath'] as String?;
+    final isOtherUser = me != null && me['username'] != widget.username;
+    if (bioUrl != null && isOtherUser) {
+      try {
+        await _bioPlayer.setUrl(bioUrl);
+        await _bioPlayer.play();
+        await Future.delayed(const Duration(seconds: 3));
+        await _bioPlayer.pause();
+      } catch (_) {}
+    }
   }
 
   Future<void> _toggleFollow() async {

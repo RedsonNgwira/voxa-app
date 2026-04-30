@@ -46,6 +46,17 @@ class _CirclesScreenState extends State<CirclesScreen> {
     _load();
   }
 
+  // Circle is live if any post in last 2h (spec 7.7)
+  bool _isCircleLive(Map<String, dynamic> circle) {
+    final posts = (circle['posts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    final twoHoursAgo = DateTime.now().subtract(const Duration(hours: 2));
+    return posts.any((p) {
+      try {
+        return DateTime.parse((p['insertedAt'] as String).replaceAll(' ', 'T')).isAfter(twoHoursAgo);
+      } catch (_) { return false; }
+    });
+  }
+
   void _showCreate() {
     showModalBottomSheet(
       context: context,
@@ -91,6 +102,7 @@ class _CirclesScreenState extends State<CirclesScreen> {
                   itemCount: _circles.length,
                   itemBuilder: (_, i) {
                     final c = _circles[i];
+                    final isLive = _isCircleLive(c);
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: AppTheme.accent.withOpacity(0.2),
@@ -98,15 +110,51 @@ class _CirclesScreenState extends State<CirclesScreen> {
                       ),
                       title: Text(c['name'] as String),
                       subtitle: Text('${c['memberCount']} members', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-                      trailing: c['isPrivate'] == true
-                          ? const Icon(Icons.lock_outline, size: 16, color: AppTheme.textMuted)
-                          : null,
+                      trailing: isLive
+                          ? _LiveDot()
+                          : c['isPrivate'] == true
+                              ? const Icon(Icons.lock_outline, size: 16, color: AppTheme.textMuted)
+                              : null,
                       onTap: () => context.push('/circles/${c['id']}'),
                     );
                   },
                 ),
     );
   }
+}
+
+// Animated ember dot — live indicator (spec 7.7)
+class _LiveDot extends StatefulWidget {
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _anim = Tween(begin: 0.4, end: 1.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _anim,
+    builder: (_, __) => Container(
+      width: 10, height: 10,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppTheme.accent.withOpacity(_anim.value),
+        boxShadow: [BoxShadow(color: AppTheme.accent.withOpacity(0.5), blurRadius: 6)],
+      ),
+    ),
+  );
 }
 
 class CircleDetailScreen extends StatefulWidget {

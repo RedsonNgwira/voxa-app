@@ -19,7 +19,7 @@ mutation Register($email: String!, $password: String!, $name: String!, $username
 
 const String kMe = r'''
 query Me {
-  me { id name username email isEmbers voiceBioPath onboarded }
+  me { id name username email isEmbers voiceBioPath onboarded emberFeedExpiresAt }
 }
 ''';
 
@@ -162,6 +162,7 @@ query MyCircles {
   myCircles {
     id name isPrivate memberCount
     members { id name username }
+    posts { id insertedAt }
   }
 }
 ''';

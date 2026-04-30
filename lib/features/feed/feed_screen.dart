@@ -3,6 +3,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/services.dart';
+import '../../core/me_provider.dart';
 import 'clip_card.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -13,17 +14,17 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabs;
+  TabController? _tabs;
   List<Map<String, dynamic>> _forYou = [];
   List<Map<String, dynamic>> _following = [];
+  List<Map<String, dynamic>> _ember = [];
   bool _loading = false;
+  bool _showEmber = false;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Load from cache first (spec 6.2)
       final cached = await FeedCache.load();
       if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
       _load();
@@ -31,8 +32,32 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final me = MeProvider.of(context);
+    final showEmber = _checkEmberFeed(me);
+    if (showEmber != _showEmber) {
+      setState(() {
+        _showEmber = showEmber;
+        _tabs?.dispose();
+        _tabs = TabController(length: showEmber ? 3 : 2, vsync: this);
+      });
+    }
+    _tabs ??= TabController(length: showEmber ? 3 : 2, vsync: this);
+  }
+
+  bool _checkEmberFeed(Map<String, dynamic>? me) {
+    if (me == null) return false;
+    final expiresAt = me['emberFeedExpiresAt'] as String?;
+    if (expiresAt == null) return false;
+    try {
+      return DateTime.parse(expiresAt).isAfter(DateTime.now());
+    } catch (_) { return false; }
+  }
+
+  @override
   void dispose() {
-    _tabs.dispose();
+    _tabs?.dispose();
     super.dispose();
   }
 
@@ -40,23 +65,43 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     if (_loading) return;
     setState(() => _loading = true);
     final client = GraphQLProvider.of(context).value;
-    final results = await Future.wait([
+    final futures = [
       client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)),
       client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
-    ]);
+    ];
+    if (_showEmber) {
+      futures.add(client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)));
+    }
+    final results = await Future.wait(futures);
     if (!mounted) return;
     setState(() {
       if (!results[0].hasException) {
         _forYou = (results[0].data!['feed'] as List).cast<Map<String, dynamic>>();
-        FeedCache.save(_forYou); // cache for offline
+        FeedCache.save(_forYou);
       }
       if (!results[1].hasException) _following = (results[1].data!['followingFeed'] as List).cast<Map<String, dynamic>>();
+      if (_showEmber && results.length > 2 && !results[2].hasException) {
+        // Ember feed: same clips sorted by play count (spec 9.4)
+        _ember = List.from(_forYou)..sort((a, b) => (b['playsCount'] as int? ?? 0).compareTo(a['playsCount'] as int? ?? 0));
+      }
       _loading = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final tabs = _tabs ?? TabController(length: 2, vsync: this);
+    final tabList = <Tab>[
+      const Tab(text: 'For You'),
+      const Tab(text: 'Following'),
+      if (_showEmber) const Tab(text: 'Ember'),
+    ];
+    final views = <Widget>[
+      _ClipList(clips: _forYou),
+      _ClipList(clips: _following),
+      if (_showEmber) _ClipList(clips: _ember),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -72,14 +117,11 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           ],
         ),
         bottom: TabBar(
-          controller: _tabs,
+          controller: tabs,
           indicatorColor: AppTheme.accent,
           labelColor: AppTheme.accent,
           unselectedLabelColor: AppTheme.textMuted,
-          tabs: const [
-            Tab(text: 'For You'),
-            Tab(text: 'Following'),
-          ],
+          tabs: tabList,
         ),
       ),
       body: _loading
@@ -88,13 +130,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               color: AppTheme.accent,
               backgroundColor: AppTheme.surface,
               onRefresh: _load,
-              child: TabBarView(
-                controller: _tabs,
-                children: [
-                  _ClipList(clips: _forYou),
-                  _ClipList(clips: _following),
-                ],
-              ),
+              child: TabBarView(controller: tabs, children: views),
             ),
     );
   }
