@@ -30,12 +30,7 @@ jobs:
 
       - name: Create key.properties
         run: |
-          cat > android/key.properties <<EOF
-          storePassword=${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=voxa-release.jks
-          EOF
+          printf 'storePassword=${{ secrets.KEY_STORE_PASSWORD }}\nkeyPassword=${{ secrets.KEY_PASSWORD }}\nkeyAlias=${{ secrets.KEY_ALIAS }}\nstoreFile=voxa-release.jks\n' > android/key.properties
 
       - name: Build AAB
         run: flutter build appbundle --release
