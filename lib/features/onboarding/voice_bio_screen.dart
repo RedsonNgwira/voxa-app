@@ -78,7 +78,12 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
         setState(() { _error = 'Save failed. Try again.'; _uploading = false; });
         return;
       }
-      context.go('/');
+      // Go back if came from profile, otherwise go to feed
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/');
+      }
     } catch (e) {
       setState(() { _error = 'Failed: $e'; _uploading = false; });
     }

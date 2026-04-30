@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 
@@ -80,6 +81,9 @@ class _NotifTile extends StatelessWidget {
       title: Text(message, style: Theme.of(context).textTheme.bodyLarge),
       subtitle: notif['insertedAt'] != null
           ? Text(_timeAgo(notif['insertedAt'] as String), style: Theme.of(context).textTheme.bodyMedium)
+          : null,
+      onTap: notif['relatedPostId'] != null
+          ? () => context.push('/clip/${notif['relatedPostId']}')
           : null,
     );
   }

@@ -119,7 +119,7 @@ query User($username: String!) {
 const String kUserClips = r'''
 query UserClips($username: String!) {
   userClips(username: $username) {
-    id audioPath duration topic playsCount insertedAt expiresAt hasPulsed repliesCount
+    id audioPath duration topic playsCount insertedAt expiresAt hasPulsed repliesCount waveform
     user { id name username }
   }
 }

@@ -125,6 +125,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  // Voice bio player (spec 7.10/7.11)
+                  if (_user!['voiceBioPath'] != null) ...[
+                    _BioBanner(
+                      bioUrl: _user!['voiceBioPath'] as String,
+                      player: _bioPlayer,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SizedBox(
                     width: double.infinity,
                     child: Builder(builder: (context) {
@@ -186,6 +194,70 @@ class _Stat extends StatelessWidget {
         Text(value, style: Theme.of(context).textTheme.headlineMedium),
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
       ],
+    );
+  }
+}
+
+class _BioBanner extends StatefulWidget {
+  final String bioUrl;
+  final AudioPlayer player;
+  const _BioBanner({required this.bioUrl, required this.player});
+
+  @override
+  State<_BioBanner> createState() => _BioBannerState();
+}
+
+class _BioBannerState extends State<_BioBanner> {
+  bool _playing = false;
+
+  Future<void> _toggle() async {
+    if (_playing) {
+      await widget.player.pause();
+      setState(() => _playing = false);
+    } else {
+      if (widget.player.processingState == ProcessingState.idle) {
+        await widget.player.setUrl(widget.bioUrl);
+      }
+      await widget.player.play();
+      setState(() => _playing = true);
+      widget.player.playerStateStream.firstWhere(
+        (s) => s.processingState == ProcessingState.completed,
+      ).then((_) { if (mounted) setState(() => _playing = false); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36, height: 36,
+              decoration: BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
+              child: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Voice bio', style: Theme.of(context).textTheme.titleMedium),
+                  Text(_playing ? 'Playing...' : 'Tap to listen', style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+            const Icon(Icons.mic_rounded, size: 16, color: AppTheme.textMuted),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -53,15 +53,13 @@ class _ClipCardState extends State<ClipCard> {
         : null;
     final expiryLabel = _expiryLabel(clip['expiresAt'] as String?);
 
-    return GestureDetector(
-      onTap: () => context.push('/clip/${clip['id']}'),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppTheme.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.border, width: 0.5),
-        ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -132,7 +130,10 @@ class _ClipCardState extends State<ClipCard> {
                         ),
                       ],
                       const SizedBox(width: 4),
-                      Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
+                      GestureDetector(
+                        onTap: () => context.push('/clip/${clip['id']}'),
+                        child: Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
+                      ),
                       // Own clip actions — absorb tap so card doesn't navigate
                       GestureDetector(
                         onTap: () {}, // absorb
@@ -181,7 +182,6 @@ class _ClipCardState extends State<ClipCard> {
             ),
           ],
         ),
-      ),
     );
   }
 
