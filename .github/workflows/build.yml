@@ -1,8 +1,8 @@
-name: Build APK
+name: Build Release AAB
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
@@ -18,14 +18,30 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.2'
+          flutter-version: '3.29.3'
           channel: stable
 
-      - run: flutter pub get
+      - name: Flutter pub get
+        run: flutter pub get
 
-      - run: flutter build apk --debug
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/voxa-release.jks
 
-      - uses: actions/upload-artifact@v4
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.KEY_STORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=voxa-release.jks
+          EOF
+
+      - name: Build AAB
+        run: flutter build appbundle --release
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
         with:
-          name: voxa-debug.apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: voxa-release.aab
+          path: build/app/outputs/bundle/release/app-release.aab
