@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "378090228118",
+    "project_id": "voxa-318e8",
+    "storage_bucket": "voxa-318e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:378090228118:android:12dbf9d9fc779eaa8235b7",
+        "android_client_info": {
+          "package_name": "com.voxa.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEeFlXP89sban2V8AWPtFh_eOVagYsmh8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

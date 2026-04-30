@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'core/theme.dart';
 import 'core/services.dart';
+import 'core/fcm_service.dart';
+import 'core/phoenix_socket.dart';
 import 'features/auth/splash_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
@@ -18,6 +21,7 @@ import 'features/profile/profile_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHiveForFlutter();
+  await Firebase.initializeApp();
   final auth = AuthService();
   await auth.load();
   runApp(VoxaApp(auth: auth));

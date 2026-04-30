@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/services.dart';
 import '../../core/theme.dart';
+import '../../core/fcm_service.dart';
 
 class LoginScreen extends StatefulWidget {
   final AuthService auth;
@@ -36,7 +37,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     final token = result.data!['login']['token'] as String;
     await widget.auth.setToken(token);
-    if (mounted) context.go('/');
+    // Init FCM after login (spec 12.2)
+    if (mounted) {
+      final newClient = GraphQLService.clientNotifier(token).value;
+      FCMService.init(newClient);
+      context.go('/');
+    }
   }
 
   @override

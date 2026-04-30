@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/services.dart';
 import 'clip_card.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -21,7 +22,12 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Load from cache first (spec 6.2)
+      final cached = await FeedCache.load();
+      if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
+      _load();
+    });
   }
 
   @override
@@ -40,7 +46,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     ]);
     if (!mounted) return;
     setState(() {
-      if (!results[0].hasException) _forYou = (results[0].data!['feed'] as List).cast<Map<String, dynamic>>();
+      if (!results[0].hasException) {
+        _forYou = (results[0].data!['feed'] as List).cast<Map<String, dynamic>>();
+        FeedCache.save(_forYou); // cache for offline
+      }
       if (!results[1].hasException) _following = (results[1].data!['followingFeed'] as List).cast<Map<String, dynamic>>();
       _loading = false;
     });
