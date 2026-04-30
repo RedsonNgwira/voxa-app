@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -17,17 +18,21 @@ class AudioPlayerWidget extends StatefulWidget {
 class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   late final AudioPlayer _player;
   bool _loading = false;
+  StreamSubscription? _stateSub;
+  StreamSubscription? _posSub;
 
   @override
   void initState() {
     super.initState();
     _player = AudioPlayer();
-    _player.playerStateStream.listen((_) { if (mounted) setState(() {}); });
-    _player.positionStream.listen((_) { if (mounted) setState(() {}); });
+    _stateSub = _player.playerStateStream.listen((_) { if (mounted) setState(() {}); });
+    _posSub = _player.positionStream.listen((_) { if (mounted) setState(() {}); });
   }
 
   @override
   void dispose() {
+    _stateSub?.cancel();
+    _posSub?.cancel();
     _player.dispose();
     super.dispose();
   }

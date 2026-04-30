@@ -126,14 +126,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _toggleFollow,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: (_user!['isFollowing'] as bool? ?? false) ? AppTheme.surface : AppTheme.accent,
-                        side: (_user!['isFollowing'] as bool? ?? false) ? const BorderSide(color: AppTheme.border) : null,
-                      ),
-                      child: Text((_user!['isFollowing'] as bool? ?? false) ? 'Following' : 'Follow'),
-                    ),
+                    child: Builder(builder: (context) {
+                      final me = MeProvider.of(context);
+                      final isOwnProfile = me != null && me['username'] == widget.username;
+                      if (isOwnProfile) return const SizedBox.shrink();
+                      return ElevatedButton(
+                        onPressed: _toggleFollow,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (_user!['isFollowing'] as bool? ?? false) ? AppTheme.surface : AppTheme.accent,
+                          side: (_user!['isFollowing'] as bool? ?? false) ? const BorderSide(color: AppTheme.border) : null,
+                        ),
+                        child: Text((_user!['isFollowing'] as bool? ?? false) ? 'Following' : 'Follow'),
+                      );
+                    }),
                   ),
                 ],
               ),

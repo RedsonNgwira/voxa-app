@@ -37,11 +37,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     final token = result.data!['login']['token'] as String;
     await widget.auth.setToken(token);
-    // Init FCM after login (spec 12.2)
     if (mounted) {
       final newClient = GraphQLService.clientNotifier(token).value;
       FCMService.init(newClient);
-      context.go('/');
+      // If user has no voice bio, send to onboarding (spec 7.3)
+      final user = result.data!['login']['user'] as Map<String, dynamic>;
+      final hasVoiceBio = (user['voiceBioPath'] as String?)?.isNotEmpty == true;
+      context.go(hasVoiceBio ? '/' : '/voice-bio');
     }
   }
 

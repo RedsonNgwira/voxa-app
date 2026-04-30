@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/services.dart';
 import '../../core/me_provider.dart';
+import '../../core/phoenix_socket.dart';
 import 'clip_card.dart';
+
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
@@ -19,6 +22,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _ember = [];
   bool _loading = false;
   bool _showEmber = false;
+  StreamSubscription? _feedSub;
 
   @override
   void initState() {
@@ -27,7 +31,30 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       final cached = await FeedCache.load();
       if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
       _load();
+      _subscribeSocket();
     });
+  }
+
+  void _subscribeSocket() {
+    final me = MeProvider.of(context);
+    if (me == null) return;
+    final userId = me['id'] as String?;
+    if (userId == null) return;
+    _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
+      if (!mounted) return;
+      if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
+        _load(); // Reload feed on new post
+      } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
+        _load(); // Remove expired posts
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _feedSub?.cancel();
+    _tabs?.dispose();
+    super.dispose();
   }
 
   @override
@@ -52,12 +79,6 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     try {
       return DateTime.parse(expiresAt).isAfter(DateTime.now());
     } catch (_) { return false; }
-  }
-
-  @override
-  void dispose() {
-    _tabs?.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {

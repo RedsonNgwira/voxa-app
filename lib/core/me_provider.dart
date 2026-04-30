@@ -25,11 +25,15 @@ class MeLoader extends StatefulWidget {
 
 class _MeLoaderState extends State<MeLoader> {
   Map<String, dynamic>? _me;
+  bool _loaded = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _load();
+    if (!_loaded) {
+      _loaded = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
