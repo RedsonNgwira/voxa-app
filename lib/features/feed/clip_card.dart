@@ -142,6 +142,14 @@ class ClipCard extends StatelessWidget {
                         count: clip['repliesCount'] ?? 0,
                         onTap: onReply ?? () => context.push('/clip/${clip['id']}'),
                       ),
+                      const SizedBox(width: 16),
+                      // Whisper — private reply (spec 9.2)
+                      _ActionBtn(
+                        icon: Icons.record_voice_over_outlined,
+                        count: 0,
+                        label: 'Whisper',
+                        onTap: () => context.push('/clip/${clip['id']}'),
+                      ),
                       const Spacer(),
                       // Pulse button — no count shown (RULE_003)
                       _PulseBtn(
@@ -173,8 +181,9 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final int count;
   final VoidCallback onTap;
+  final String? label;
 
-  const _ActionBtn({required this.icon, required this.count, required this.onTap});
+  const _ActionBtn({required this.icon, required this.count, required this.onTap, this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +193,7 @@ class _ActionBtn extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppTheme.textMuted),
           const SizedBox(width: 4),
-          Text('$count', style: Theme.of(context).textTheme.bodyMedium),
+          Text(label ?? '$count', style: Theme.of(context).textTheme.bodyMedium),
         ],
       ),
     );

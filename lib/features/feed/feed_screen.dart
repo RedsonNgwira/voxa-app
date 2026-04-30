@@ -69,7 +69,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
     ];
     if (_showEmber) {
-      futures.add(client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)));
+      futures.add(client.query(QueryOptions(document: gql(kEmberFeed), fetchPolicy: FetchPolicy.networkOnly)));
     }
     final results = await Future.wait(futures);
     if (!mounted) return;
@@ -80,8 +80,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       }
       if (!results[1].hasException) _following = (results[1].data!['followingFeed'] as List).cast<Map<String, dynamic>>();
       if (_showEmber && results.length > 2 && !results[2].hasException) {
-        // Ember feed: same clips sorted by play count (spec 9.4)
-        _ember = List.from(_forYou)..sort((a, b) => (b['playsCount'] as int? ?? 0).compareTo(a['playsCount'] as int? ?? 0));
+        _ember = (results[2].data!['emberFeed'] as List).cast<Map<String, dynamic>>();
       }
       _loading = false;
     });

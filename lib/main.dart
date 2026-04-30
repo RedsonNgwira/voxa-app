@@ -7,7 +7,9 @@ import 'core/services.dart';
 import 'core/fcm_service.dart';
 import 'core/phoenix_socket.dart';
 import 'core/me_provider.dart';
+import 'core/queries.dart';
 import 'features/auth/splash_screen.dart';
+import 'features/feed/clip_card.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
 import 'features/onboarding/voice_bio_screen.dart';
@@ -165,15 +167,49 @@ class MainShell extends StatelessWidget {
   }
 }
 
-class ClipDetailScreen extends StatelessWidget {
+class ClipDetailScreen extends StatefulWidget {
   final String id;
   const ClipDetailScreen({super.key, required this.id});
 
   @override
+  State<ClipDetailScreen> createState() => _ClipDetailScreenState();
+}
+
+class _ClipDetailScreenState extends State<ClipDetailScreen> {
+  Map<String, dynamic>? _clip;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final client = GraphQLProvider.of(context).value;
+    final result = await client.query(QueryOptions(
+      document: gql(kClip),
+      variables: {'id': widget.id},
+      fetchPolicy: FetchPolicy.networkOnly,
+    ));
+    if (!mounted) return;
+    setState(() {
+      if (!result.hasException) _clip = result.data!['clip'] as Map<String, dynamic>?;
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
+    if (_clip == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Clip not found')));
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Clip')),
-      body: Center(child: Text('Clip $id', style: Theme.of(context).textTheme.bodyLarge)),
+      appBar: AppBar(title: Text(_clip!['user']?['name'] ?? '')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: ClipCard(clip: _clip!),
+      ),
     );
   }
 }

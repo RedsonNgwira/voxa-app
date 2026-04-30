@@ -3,7 +3,7 @@ const String kLogin = r'''
 mutation Login($email: String!, $password: String!) {
   login(email: $email, password: $password) {
     token
-    user { id name username email isEmbers voiceBioPath onboarded }
+    user { id name username isEmbers voiceBioPath onboarded }
   }
 }
 ''';
@@ -12,14 +12,14 @@ const String kRegister = r'''
 mutation Register($email: String!, $password: String!, $name: String!, $username: String!) {
   register(email: $email, password: $password, name: $name, username: $username) {
     token
-    user { id name username email }
+    user { id name username }
   }
 }
 ''';
 
 const String kMe = r'''
 query Me {
-  me { id name username email isEmbers voiceBioPath onboarded emberFeedExpiresAt }
+  me { id name username isEmbers voiceBioPath onboarded emberFeedExpiresAt }
 }
 ''';
 
@@ -37,6 +37,16 @@ query Feed {
 const String kFollowingFeed = r'''
 query FollowingFeed {
   followingFeed {
+    id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
+    repliesCount
+    user { id name username }
+  }
+}
+''';
+
+const String kEmberFeed = r'''
+query EmberFeed {
+  emberFeed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
     repliesCount
     user { id name username }
