@@ -55,15 +55,18 @@ class ClipCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Expiry bar at top of card (spec 7.5)
+            // Expiry bar — ember→gold gradient (spec 7.5)
             if (expiryLabel != null)
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: LinearProgressIndicator(
-                  value: _expiryProgress(clip['expiresAt'] as String?),
-                  backgroundColor: Colors.transparent,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent.withOpacity(0.6)),
-                  minHeight: 2,
+                child: Container(
+                  height: 2,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppTheme.accent, AppTheme.gold],
+                      stops: [_expiryProgress(clip['expiresAt'] as String?) ?? 1.0, 1.0],
+                    ),
+                  ),
                 ),
               ),
             Padding(

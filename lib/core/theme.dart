@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static const _black = Color(0xFF0A0A0A);
-  static const _surface = Color(0xFF141414);
-  static const _card = Color(0xFF1E1E1E);
-  static const _accent = Color(0xFFE8622A);   // ember per spec 8.1
-  static const _accentLight = Color(0xFFC9A84C); // gold per spec 8.1
-  static const _text = Color(0xFFF0E6D3);     // textPrimary per spec 8.1
-  static const _textMuted = Color(0xFF8A7565); // textDim per spec 8.1
-  static const _border = Color(0xFF1E1812);
+  static const _black = Color(0xFF0E0B08);      // spec background
+  static const _surface = Color(0xFF181310);    // spec surface
+  static const _card = Color(0xFF1E1812);       // spec card
+  static const _accent = Color(0xFFE8622A);     // ember
+  static const _accentLight = Color(0xFFC9A84C); // gold
+  static const _emberDim = Color(0xFFA03E18);   // spec emberDim
+  static const _text = Color(0xFFF0E6D3);       // spec textPrimary
+  static const _textDim = Color(0xFF8A7565);    // spec textDim
+  static const _textMuted = Color(0xFF4A3D30);  // spec textMuted
+  static const _pulse = Color(0xFFFF6B6B);      // spec pulse
+  static const _online = Color(0xFF4ADE80);     // spec online
+  // border: rgba(201,168,76,0.08) — gold tint
+  static const _border = Color(0x14C9A84C);     // 8% opacity gold
 
   static ThemeData get dark {
     // DM Sans for all body text (spec 8.2)
@@ -46,7 +51,7 @@ class AppTheme {
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: _black,
         selectedItemColor: _accent,
-        unselectedItemColor: _textMuted,
+        unselectedItemColor: _textDim,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
@@ -84,9 +89,14 @@ class AppTheme {
 
   static const accent = _accent;
   static const gold = _accentLight;
+  static const emberDim = _emberDim;
+  static const emberGlow = Color(0x26E8622A);  // 15% opacity ember
+  static const pulse = _pulse;
+  static const online = _online;
   static const surface = _surface;
   static const card = _card;
   static const textMuted = _textMuted;
+  static const textDim = _textDim;
   static const border = _border;
   static const black = _black;
 }

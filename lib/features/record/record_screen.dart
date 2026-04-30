@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -82,7 +83,7 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
     setState(() { _uploading = true; _error = null; });
     try {
       // Upload directly to Cloudinary (spec 11.1)
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, GraphQLProvider.of(context).value);
 
       // Normalize waveform to 48 values (spec 11.1)
       final waveformData = _normalizeWaveform(_waveform, 48);
@@ -140,7 +141,7 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
               // Timer
               Text(
                 _fmt(_elapsed),
-                style: const TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w200, letterSpacing: 4),
+                style: const TextStyle(color: Colors.white, fontSize: 56, fontWeight: FontWeight.w200, letterSpacing: 4, fontFeatures: [FontFeature.tabularFigures()]),
               ),
               const SizedBox(height: 32),
               // Waveform visualizer

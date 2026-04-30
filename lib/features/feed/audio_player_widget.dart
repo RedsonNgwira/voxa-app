@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/theme.dart';
@@ -91,8 +92,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_fmt(position), style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
-                  Text(_fmt(total), style: const TextStyle(color: AppTheme.textMuted, fontSize: 11)),
+                  Text(_fmt(position), style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, fontFeatures: [FontFeature.tabularFigures()])),
+                  Text(_fmt(total), style: const TextStyle(color: AppTheme.textMuted, fontSize: 11, fontFeatures: [FontFeature.tabularFigures()])),
                 ],
               ),
             ],

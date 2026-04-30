@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -65,7 +66,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
     if (_filePath == null) return;
     setState(() { _uploading = true; _error = null; });
     try {
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, GraphQLProvider.of(context).value);
       final waveformData = _normalizeWaveform(_waveform, 48);
       final client = GraphQLProvider.of(context).value;
       final result = await client.mutate(MutationOptions(
@@ -110,7 +111,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
               Text('60 seconds. Just talk.', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
               const Spacer(),
               // Timer
-              Text(_fmt(_elapsed), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w200, letterSpacing: 4)),
+              Text(_fmt(_elapsed), style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.w200, letterSpacing: 4, fontFeatures: [FontFeature.tabularFigures()])),
               const SizedBox(height: 8),
               // Progress bar
               LinearProgressIndicator(
