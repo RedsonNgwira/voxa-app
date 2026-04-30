@@ -54,9 +54,9 @@ class _VoxaAppState extends State<VoxaApp> {
     initialLocation: widget.auth.isLoggedIn ? '/' : '/login',
     redirect: (context, state) {
       final loggedIn = widget.auth.isLoggedIn;
-      final onAuth = ['/login', '/register', '/voice-bio'].contains(state.matchedLocation);
-      if (!loggedIn && !onAuth) return '/login';
-      if (loggedIn && onAuth && state.matchedLocation != '/voice-bio') return '/';
+      final onAuth = ['/login', '/register'].contains(state.matchedLocation);
+      if (!loggedIn && state.matchedLocation != '/voice-bio' && !onAuth) return '/login';
+      if (loggedIn && onAuth) return '/';
       return null;
     },
     routes: [

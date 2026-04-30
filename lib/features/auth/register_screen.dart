@@ -46,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     final token = result.data!['register']['token'] as String;
     await widget.auth.setToken(token);
-    if (mounted) context.go('/');
+    if (mounted) context.go('/voice-bio');
   }
 
   @override
