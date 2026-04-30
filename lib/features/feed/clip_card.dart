@@ -6,11 +6,18 @@ import '../../core/theme.dart';
 import '../../core/me_provider.dart';
 import 'audio_player_widget.dart';
 
-class ClipCard extends StatelessWidget {
+class ClipCard extends StatefulWidget {
   final Map<String, dynamic> clip;
   final VoidCallback? onReply;
 
   const ClipCard({super.key, required this.clip, this.onReply});
+
+  @override
+  State<ClipCard> createState() => _ClipCardState();
+}
+
+class _ClipCardState extends State<ClipCard> {
+  bool _deleted = false;
 
   String _timeAgo(String? insertedAt) {
     if (insertedAt == null) return '';
@@ -37,6 +44,8 @@ class ClipCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_deleted) return const SizedBox.shrink();
+    final clip = widget.clip;
     final user = clip['user'] as Map<String, dynamic>;
     final waveformRaw = clip['waveform'] as String?;
     final waveform = waveformRaw != null
@@ -124,8 +133,14 @@ class ClipCard extends StatelessWidget {
                       ],
                       const SizedBox(width: 4),
                       Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
-                      // Own clip actions
-                      _OwnClipActions(clip: clip),
+                      // Own clip actions — absorb tap so card doesn't navigate
+                      GestureDetector(
+                        onTap: () {}, // absorb
+                        child: _OwnClipActions(
+                          clip: clip,
+                          onDeleted: () => setState(() => _deleted = true),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -143,7 +158,7 @@ class ClipCard extends StatelessWidget {
                       _ActionBtn(
                         icon: Icons.chat_bubble_outline_rounded,
                         count: clip['repliesCount'] ?? 0,
-                        onTap: onReply ?? () => context.push('/clip/${clip['id']}'),
+                        onTap: widget.onReply ?? () => context.push('/clip/${clip['id']}'),
                       ),
                       const SizedBox(width: 16),
                       // Whisper — private reply (spec 9.2)
@@ -262,7 +277,8 @@ class _PulseBtnState extends State<_PulseBtn> {
 /// Shows preserve/delete for own clips only (spec 4.3, 9.3)
 class _OwnClipActions extends StatelessWidget {
   final Map<String, dynamic> clip;
-  const _OwnClipActions({required this.clip});
+  final VoidCallback? onDeleted;
+  const _OwnClipActions({required this.clip, this.onDeleted});
 
   Future<void> _preserve(BuildContext context) async {
     final client = GraphQLProvider.of(context).value;
@@ -297,10 +313,12 @@ class _OwnClipActions extends StatelessWidget {
     );
     if (confirm != true || !context.mounted) return;
     final client = GraphQLProvider.of(context).value;
-    await client.mutate(MutationOptions(
+    final result = await client.mutate(MutationOptions(
       document: gql(kDeleteClip),
       variables: {'id': clip['id']},
     ));
+    if (!context.mounted) return;
+    if (!result.hasException) onDeleted?.call();
   }
 
   @override

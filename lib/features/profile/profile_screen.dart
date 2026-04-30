@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
@@ -129,7 +130,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Builder(builder: (context) {
                       final me = MeProvider.of(context);
                       final isOwnProfile = me != null && me['username'] == widget.username;
-                      if (isOwnProfile) return const SizedBox.shrink();
+                      if (isOwnProfile) {
+                        return OutlinedButton.icon(
+                          onPressed: () => context.push('/voice-bio'),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Edit profile'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.textMuted,
+                            side: const BorderSide(color: AppTheme.border),
+                          ),
+                        );
+                      }
                       return ElevatedButton(
                         onPressed: _toggleFollow,
                         style: ElevatedButton.styleFrom(

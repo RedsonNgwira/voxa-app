@@ -229,6 +229,7 @@ class _ClipDetailScreenState extends State<ClipDetailScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipCard(
               clip: _clip!,
@@ -258,6 +259,15 @@ class _ClipDetailScreenState extends State<ClipDetailScreen> {
                 ),
               ],
             ),
+            // Replies list
+            if ((_clip!['replies'] as List?)?.isNotEmpty == true) ...[
+              const SizedBox(height: 24),
+              Text('Replies', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              ...(_clip!['replies'] as List).cast<Map<String, dynamic>>()
+                  .where((r) => r['isWhisper'] != true)
+                  .map((r) => ClipCard(clip: r)),
+            ],
           ],
         ),
       ),
@@ -304,7 +314,7 @@ class _ReplySheetState extends State<_ReplySheet> {
       final v = ((amp.current + 60) / 60).clamp(0.0, 1.0);
       if (mounted) setState(() {
         _waveform.add(v);
-        if (_waveform.length % 10 == 0) _elapsed += const Duration(seconds: 1);
+        _elapsed += const Duration(milliseconds: 100);
         if (_elapsed.inSeconds >= 180) _stop();
       });
     });

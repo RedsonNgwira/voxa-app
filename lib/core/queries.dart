@@ -60,6 +60,10 @@ query Clip($id: ID!) {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
     repliesCount parentId
     user { id name username }
+    replies {
+      id audioPath duration waveform insertedAt isWhisper
+      user { id name username }
+    }
   }
 }
 ''';
