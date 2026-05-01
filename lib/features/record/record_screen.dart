@@ -13,7 +13,10 @@ import '../../core/me_provider.dart';
 
 class RecordScreen extends StatefulWidget {
   final String? preselectedCircleId;
-  const RecordScreen({super.key, this.preselectedCircleId});
+  final String? promptId;
+  final String? promptText;
+  final String? initialMood;
+  const RecordScreen({super.key, this.preselectedCircleId, this.promptId, this.promptText, this.initialMood});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -34,9 +37,11 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
   String? _topic;
   String? _circleId;
   String? _error;
+  String? _mood;
   List<Map<String, dynamic>> _circles = [];
 
   static const _topics = ['General', 'Music', 'Comedy', 'Story', 'Thought', 'Question', 'Rant', 'Other'];
+  static const _moods = ['calm', 'hype', 'sad', 'angry', 'playful', 'thoughtful', 'vulnerable'];
 
   int get _maxSeconds {
     final me = MeProvider.of(context);
@@ -47,6 +52,7 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
   void initState() {
     super.initState();
     _circleId = widget.preselectedCircleId;
+    _mood = widget.initialMood;
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
       ..repeat(reverse: true);
     _successController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
@@ -131,16 +137,21 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
       final waveformData = _normalizeWaveform(_waveform, 48);
 
       final client = GraphQLProvider.of(context).value;
+      final useExtended = widget.promptId != null || _mood != null;
       final result = await client.mutate(MutationOptions(
-        document: gql(kCreateClip),
+        document: gql(useExtended ? kCreateClipExtended : kCreateClip),
         variables: {
           'audioUrl': cloudinary['url'],
           'cloudinaryPublicId': cloudinary['publicId'],
           'waveformData': waveformData,
           'durationSeconds': _elapsed.inSeconds > 0 ? _elapsed.inSeconds : 1,
           'category': _topic ?? 'General',
-          'mood': null,
+          'mood': _mood,
           'circleId': _circleId,
+          if (useExtended) ...{
+            'clipType': 'voice',
+            'promptId': widget.promptId,
+          },
         },
       ));
       if (!mounted) return;
@@ -229,6 +240,39 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
+              // Prompt banner (when recording a prompt response)
+              if (widget.promptText != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gold.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.gold.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lightbulb_rounded, color: AppTheme.gold, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Responding to prompt',
+                              style: TextStyle(color: AppTheme.gold, fontSize: 11, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(widget.promptText!,
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               const Spacer(flex: 2),
 
               // Timer
@@ -303,6 +347,42 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
                         color: _topic == t ? Colors.white : AppTheme.textMuted,
                         fontSize: 13,
                         fontWeight: _topic == t ? FontWeight.w600 : FontWeight.normal,
+                      )),
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Mood selector (after recording)
+              if (hasRecording) ...[
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Mood (optional)', style: TextStyle(color: AppTheme.textDim, fontSize: 12)),
+                  ),
+                ),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: _moods.map((m) => GestureDetector(
+                    onTap: () => setState(() => _mood = _mood == m ? null : m),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: _mood == m ? AppTheme.gold.withOpacity(0.15) : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _mood == m ? AppTheme.gold : AppTheme.border,
+                          width: _mood == m ? 1.5 : 0.5,
+                        ),
+                      ),
+                      child: Text(m[0].toUpperCase() + m.substring(1), style: TextStyle(
+                        color: _mood == m ? AppTheme.gold : AppTheme.textMuted,
+                        fontSize: 12,
+                        fontWeight: _mood == m ? FontWeight.w600 : FontWeight.normal,
                       )),
                     ),
                   )).toList(),

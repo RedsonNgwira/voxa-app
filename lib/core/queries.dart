@@ -228,3 +228,183 @@ query SuggestedUsers {
   }
 }
 ''';
+
+// ── New feature queries ─────────────────────────────────────────────────────
+
+// Clip fields fragment (reused across feeds)
+const String _clipFields = '''
+  id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
+  repliesCount clipType echoOfId echoIntroPath echoIntroDuration echoCount
+  locationName threadId threadPosition promptId
+  user { id name username }
+''';
+
+// Mood feed
+const String kMoodFeed = r'''
+query MoodFeed($mood: String!, $limit: Int) {
+  moodFeed(mood: $mood, limit: $limit) {
+    id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
+    repliesCount clipType
+    user { id name username }
+  }
+}
+''';
+
+// Ambient feed
+const String kAmbientFeed = r'''
+query AmbientFeed($limit: Int) {
+  ambientFeed(limit: $limit) {
+    id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
+    repliesCount clipType locationName
+    user { id name username }
+  }
+}
+''';
+
+// Daily prompt
+const String kTodayPrompt = r'''
+query TodayPrompt {
+  todayPrompt {
+    id text category activeDate responseCount
+  }
+}
+''';
+
+const String kRecentPrompts = r'''
+query RecentPrompts($days: Int) {
+  recentPrompts(days: $days) {
+    id text category activeDate responseCount
+  }
+}
+''';
+
+const String kPromptResponses = r'''
+query PromptResponses($promptId: ID!, $limit: Int) {
+  promptResponses(promptId: $promptId, limit: $limit) {
+    id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
+    repliesCount promptId
+    user { id name username }
+  }
+}
+''';
+
+// Create clip with new fields (ambient, prompt response)
+const String kCreateClipExtended = r'''
+mutation CreateClipExtended($audioUrl: String!, $cloudinaryPublicId: String!, $waveformData: [Float!]!, $durationSeconds: Int!, $category: String!, $mood: String, $circleId: ID, $clipType: String, $locationName: String, $latitude: Float, $longitude: Float, $promptId: ID) {
+  createClip(audioUrl: $audioUrl, cloudinaryPublicId: $cloudinaryPublicId, waveformData: $waveformData, durationSeconds: $durationSeconds, category: $category, mood: $mood, circleId: $circleId, clipType: $clipType, locationName: $locationName, latitude: $latitude, longitude: $longitude, promptId: $promptId) {
+    id audioPath topic clipType insertedAt
+    user { id name username }
+  }
+}
+''';
+
+// Echo
+const String kCreateEcho = r'''
+mutation CreateEcho($echoOfId: ID!, $introAudioUrl: String!, $introCloudinaryPublicId: String!, $introWaveformData: [Float!], $introDurationSeconds: Int) {
+  createEcho(echoOfId: $echoOfId, introAudioUrl: $introAudioUrl, introCloudinaryPublicId: $introCloudinaryPublicId, introWaveformData: $introWaveformData, introDurationSeconds: $introDurationSeconds) {
+    id audioPath clipType echoOfId echoIntroPath echoIntroDuration
+    user { id name username }
+    echoOf {
+      id audioPath duration waveform topic mood
+      user { id name username }
+    }
+  }
+}
+''';
+
+// Voice threads
+const String kMyThreads = r'''
+query MyThreads {
+  myThreads {
+    id title clipCount isComplete insertedAt
+    user { id name username }
+    clips {
+      id audioPath duration waveform threadPosition insertedAt
+      user { id name username }
+    }
+  }
+}
+''';
+
+const String kThreadFeed = r'''
+query ThreadFeed($limit: Int) {
+  threadFeed(limit: $limit) {
+    id title clipCount isComplete insertedAt
+    user { id name username }
+    clips {
+      id audioPath duration waveform threadPosition insertedAt
+      user { id name username }
+    }
+  }
+}
+''';
+
+const String kCreateVoiceThread = r'''
+mutation CreateVoiceThread($title: String) {
+  createVoiceThread(title: $title) {
+    id title clipCount
+  }
+}
+''';
+
+const String kAddToThread = r'''
+mutation AddToThread($threadId: ID!, $audioUrl: String!, $cloudinaryPublicId: String!, $waveformData: [Float!], $durationSeconds: Int, $mood: String) {
+  addToThread(threadId: $threadId, audioUrl: $audioUrl, cloudinaryPublicId: $cloudinaryPublicId, waveformData: $waveformData, durationSeconds: $durationSeconds, mood: $mood) {
+    id clipCount
+    clips {
+      id audioPath duration waveform threadPosition
+      user { id name username }
+    }
+  }
+}
+''';
+
+const String kCompleteThread = r'''
+mutation CompleteThread($threadId: ID!) {
+  completeThread(threadId: $threadId) {
+    id isComplete clipCount
+  }
+}
+''';
+
+// Campfires
+const String kActiveCampfires = r'''
+query ActiveCampfires($circleId: ID) {
+  activeCampfires(circleId: $circleId) {
+    id title maxParticipants isActive participantCount circleId insertedAt
+    starter { id name username }
+    participants { id name username }
+  }
+}
+''';
+
+const String kStartCampfire = r'''
+mutation StartCampfire($title: String, $circleId: ID, $maxParticipants: Int) {
+  startCampfire(title: $title, circleId: $circleId, maxParticipants: $maxParticipants) {
+    id title maxParticipants isActive participantCount
+    starter { id name username }
+    participants { id name username }
+  }
+}
+''';
+
+const String kJoinCampfire = r'''
+mutation JoinCampfire($campfireId: ID!) {
+  joinCampfire(campfireId: $campfireId) {
+    id title participantCount
+    participants { id name username }
+  }
+}
+''';
+
+const String kLeaveCampfire = r'''
+mutation LeaveCampfire($campfireId: ID!) {
+  leaveCampfire(campfireId: $campfireId)
+}
+''';
+
+const String kEndCampfire = r'''
+mutation EndCampfire($campfireId: ID!) {
+  endCampfire(campfireId: $campfireId)
+}
+''';

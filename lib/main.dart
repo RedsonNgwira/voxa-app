@@ -25,6 +25,9 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/embers/embers_screen.dart';
 import 'features/record/record_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/prompts/prompt_screen.dart';
+import 'features/campfire/campfire_screen.dart';
+import 'features/threads/threads_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -93,9 +96,18 @@ class _VoxaAppState extends State<VoxaApp> {
           GoRoute(path: '/circles/:id', builder: (_, s) => CircleDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
           GoRoute(path: '/embers', builder: (_, __) => const EmbersScreen()),
-          GoRoute(path: '/record', builder: (_, s) => RecordScreen(preselectedCircleId: s.uri.queryParameters['circleId'])),
+          GoRoute(path: '/record', builder: (_, s) => RecordScreen(
+            preselectedCircleId: s.uri.queryParameters['circleId'],
+            promptId: s.uri.queryParameters['promptId'],
+            promptText: s.uri.queryParameters['promptText'],
+            initialMood: s.uri.queryParameters['mood'],
+          )),
           GoRoute(path: '/profile/:username', builder: (_, s) => ProfileScreen(username: s.pathParameters['username']!)),
           GoRoute(path: '/clip/:id', builder: (_, s) => ClipDetailScreen(id: s.pathParameters['id']!)),
+          GoRoute(path: '/prompts', builder: (_, __) => const PromptScreen()),
+          GoRoute(path: '/campfires', builder: (_, __) => const CampfireScreen()),
+          GoRoute(path: '/campfire/:id', builder: (_, s) => CampfireDetailScreen(id: s.pathParameters['id']!)),
+          GoRoute(path: '/threads', builder: (_, __) => const ThreadsScreen()),
         ],
       ),
     ],
@@ -146,8 +158,12 @@ class MainShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
 
-    // Hide bottom nav on record and clip detail screens
-    final hideNav = location == '/record' || location.startsWith('/clip/');
+    // Hide bottom nav on record, clip detail, and campfire detail screens
+    final hideNav = location == '/record' ||
+        location.startsWith('/clip/') ||
+        location.startsWith('/campfire/') ||
+        location == '/prompts' ||
+        location == '/threads';
 
     final navIndex = switch (location) {
       '/' => 0,

@@ -27,6 +27,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   bool _hasNewPosts = false;
   StreamSubscription? _feedSub;
   StreamSubscription? _pulseSub;
+  String? _activeMood;
 
   @override
   void initState() {
@@ -120,6 +121,15 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     });
   }
 
+  List<Map<String, dynamic>> _moodFiltered(List<Map<String, dynamic>> clips) {
+    if (_activeMood == null) return clips;
+    return clips.where((c) => c['mood'] == _activeMood).toList();
+  }
+
+  void _setMood(String? mood) {
+    setState(() => _activeMood = _activeMood == mood ? null : mood);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tabs = _tabs!;
@@ -129,10 +139,21 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       if (_showEmber) const Tab(text: 'Ember'),
     ];
     final views = <Widget>[
-      _ClipList(clips: _forYou, loading: _loading, emptyMessage: 'No voices yet\nBe the first to speak', emptyIcon: Icons.campaign_rounded),
-      _ClipList(clips: _following, loading: _loading, emptyMessage: 'Follow people to hear\ntheir voices', suggestUsers: true, emptyIcon: Icons.people_outline_rounded),
-      if (_showEmber) _ClipList(clips: _ember, loading: _loading, emptyMessage: 'No ember voices yet', emptyIcon: Icons.local_fire_department_outlined),
+      _ClipList(clips: _moodFiltered(_forYou), loading: _loading, emptyMessage: 'No voices yet\nBe the first to speak', emptyIcon: Icons.campaign_rounded),
+      _ClipList(clips: _moodFiltered(_following), loading: _loading, emptyMessage: 'Follow people to hear\ntheir voices', suggestUsers: true, emptyIcon: Icons.people_outline_rounded),
+      if (_showEmber) _ClipList(clips: _moodFiltered(_ember), loading: _loading, emptyMessage: 'No ember voices yet', emptyIcon: Icons.local_fire_department_outlined),
     ];
+
+    const moods = ['calm', 'hype', 'sad', 'angry', 'playful', 'thoughtful', 'vulnerable'];
+    const moodIcons = {
+      'calm': Icons.spa_rounded,
+      'hype': Icons.bolt_rounded,
+      'sad': Icons.water_drop_rounded,
+      'angry': Icons.whatshot_rounded,
+      'playful': Icons.mood_rounded,
+      'thoughtful': Icons.psychology_rounded,
+      'vulnerable': Icons.favorite_rounded,
+    };
 
     return Scaffold(
       appBar: AppBar(
@@ -155,6 +176,11 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.lightbulb_outline_rounded, color: AppTheme.gold, size: 22),
+            onPressed: () => context.push('/prompts'),
+            tooltip: 'Daily Prompt',
+          ),
+          IconButton(
             icon: const Icon(Icons.local_fire_department_rounded, color: AppTheme.accent, size: 22),
             onPressed: () => context.push('/embers'),
             tooltip: 'Embers',
@@ -174,40 +200,90 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           tabs: tabList,
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          RefreshIndicator(
-            color: AppTheme.accent,
-            backgroundColor: AppTheme.surface,
-            onRefresh: _load,
-            child: TabBarView(controller: tabs, children: views),
-          ),
-          // New posts banner
-          if (_hasNewPosts)
-            Positioned(
-              top: 8, left: 0, right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () { setState(() => _hasNewPosts = false); _load(); },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accent,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: AppTheme.accent.withOpacity(0.4), blurRadius: 12)],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 14),
-                        SizedBox(width: 6),
-                        Text('New voices', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                      ],
+          // Mood filter chips
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              children: moods.map((mood) {
+                final active = _activeMood == mood;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => _setMood(mood),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: active ? AppTheme.accent.withOpacity(0.15) : AppTheme.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: active ? AppTheme.accent : AppTheme.border,
+                          width: active ? 1.2 : 0.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(moodIcons[mood] ?? Icons.circle, size: 14,
+                            color: active ? AppTheme.accent : AppTheme.textMuted),
+                          const SizedBox(width: 5),
+                          Text(mood[0].toUpperCase() + mood.substring(1),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+                              color: active ? AppTheme.accent : AppTheme.textMuted,
+                            )),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
+                );
+              }).toList(),
             ),
+          ),
+          // Feed content
+          Expanded(
+            child: Stack(
+              children: [
+                RefreshIndicator(
+                  color: AppTheme.accent,
+                  backgroundColor: AppTheme.surface,
+                  onRefresh: _load,
+                  child: TabBarView(controller: tabs, children: views),
+                ),
+                // New posts banner
+                if (_hasNewPosts)
+                  Positioned(
+                    top: 8, left: 0, right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () { setState(() => _hasNewPosts = false); _load(); },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [BoxShadow(color: AppTheme.accent.withOpacity(0.4), blurRadius: 12)],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 14),
+                              SizedBox(width: 6),
+                              Text('New voices', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
