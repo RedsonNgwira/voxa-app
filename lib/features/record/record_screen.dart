@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -84,7 +85,7 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
       setState(() => _error = 'Microphone permission is required to record.');
       return;
     }
-    final dir = await getTemporaryDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/voxa_${DateTime.now().millisecondsSinceEpoch}.m4a';
     await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
     _timer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
@@ -167,7 +168,8 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
         return;
       }
 
-      // Success animation
+      // Success — clean up local file
+      try { File(_filePath!).deleteSync(); } catch (_) {}
       _successController.forward();
       await Future.delayed(const Duration(milliseconds: 400));
       if (mounted) context.go('/');
