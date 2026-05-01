@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:async';
@@ -25,6 +26,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   bool _showEmber = false;
   bool _hasNewPosts = false;
   StreamSubscription? _feedSub;
+  StreamSubscription? _pulseSub;
 
   @override
   void initState() {
@@ -39,22 +41,28 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
   void _subscribeSocket() {
     final me = MeProvider.of(context);
-    if (me == null || _feedSub != null) return; // not ready or already subscribed
+    if (me == null || _feedSub != null) return;
     final userId = me['id'] as String?;
     if (userId == null) return;
     _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
       if (!mounted) return;
       if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
-        setState(() => _hasNewPosts = true); // show banner instead of silent reload
+        setState(() => _hasNewPosts = true);
       } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
         _load();
       }
+    });
+    // Pulse haptic — someone felt your voice (RULE_003: no count, no sender)
+    _pulseSub = phoenixSocket.subscribe('pulse:$userId').listen((event) {
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
     });
   }
 
   @override
   void dispose() {
     _feedSub?.cancel();
+    _pulseSub?.cancel();
     _tabs?.dispose();
     super.dispose();
   }

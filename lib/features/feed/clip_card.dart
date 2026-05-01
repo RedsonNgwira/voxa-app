@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
@@ -251,7 +252,8 @@ class _PulseBtnState extends State<_PulseBtn> {
   }
 
   Future<void> _pulse() async {
-    if (_pulsed) return; // Cannot un-pulse per spec
+    if (_pulsed) return;
+    HapticFeedback.mediumImpact(); // immediate feedback
     final client = GraphQLProvider.of(context).value;
     final result = await client.mutate(MutationOptions(
       document: gql(kPulse),

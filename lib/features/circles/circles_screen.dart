@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/phoenix_socket.dart';
 import '../feed/clip_card.dart';
 
 class CirclesScreen extends StatefulWidget {
@@ -176,11 +178,23 @@ class CircleDetailScreen extends StatefulWidget {
 class _CircleDetailScreenState extends State<CircleDetailScreen> {
   Map<String, dynamic>? _circle;
   bool _loading = true;
+  StreamSubscription? _sub;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _sub = phoenixSocket.subscribe('circle:${widget.id}').listen((event) {
+        if (mounted) _load(); // reload on new circle post
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {

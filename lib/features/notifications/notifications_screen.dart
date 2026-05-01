@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
+import '../../core/me_provider.dart';
+import '../../core/phoenix_socket.dart';
+import '../../core/me_provider.dart';
+import '../../core/phoenix_socket.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -14,6 +19,29 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<Map<String, dynamic>> _notifications = [];
   bool _loading = true;
+  StreamSubscription? _sub;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _subscribeSocket();
+  }
+
+  void _subscribeSocket() {
+    if (_sub != null) return;
+    final me = MeProvider.of(context);
+    final userId = me?['id'] as String?;
+    if (userId == null) return;
+    _sub = phoenixSocket.subscribe('notifications:$userId').listen((event) {
+      if (mounted) _load(); // reload on any notification event
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
