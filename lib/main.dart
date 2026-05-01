@@ -52,6 +52,12 @@ class _VoxaAppState extends State<VoxaApp> {
     super.initState();
     widget.auth.addListener(_onAuthChange);
     _router = _buildRouter();
+    // Handle notification taps — navigate to clip
+    onNotificationTap = (postId, type) {
+      if (postId != null) {
+        _router.push('/clip/$postId');
+      }
+    };
   }
 
   void _onAuthChange() => setState(() { _router = _buildRouter(); });
