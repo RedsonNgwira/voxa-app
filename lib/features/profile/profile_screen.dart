@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/me_provider.dart';
-import '../../core/phoenix_socket.dart';
+import '../../main.dart';
 import '../feed/clip_card.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -49,7 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _loading = false;
     });
 
-    // Auto-play voice bio 3s for other users (spec 7.11)
+    // Auto-play voice bio 3s for other users
     final me = MeProvider.of(context);
     final bioUrl = _user?['voiceBioPath'] as String?;
     final isOtherUser = me != null && me['username'] != widget.username;
@@ -58,15 +57,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _bioPlayer.setUrl(bioUrl);
         await _bioPlayer.play();
         await Future.delayed(const Duration(seconds: 3));
-        await _bioPlayer.pause();
+        if (mounted) await _bioPlayer.pause();
       } catch (_) {}
     }
   }
 
   Future<void> _logout(BuildContext ctx) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    phoenixSocket.disconnect();
+    final confirm = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Log out?'),
+        content: const Text('You can always log back in.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !ctx.mounted) return;
+
+    // Use AuthService for proper cleanup (socket disconnect, token removal, state update)
+    final auth = AuthProvider.of(ctx);
+    if (auth != null) {
+      await auth.logout();
+    }
     if (ctx.mounted) ctx.go('/login');
   }
 
@@ -74,7 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_user == null) return;
     final isFollowing = _user!['isFollowing'] as bool? ?? false;
     final client = GraphQLProvider.of(context).value;
-    // Follow/unfollow uses userId per spec
     await client.mutate(MutationOptions(
       document: gql(isFollowing ? kUnfollow : kFollow),
       variables: {'userId': _user!['id']},
@@ -84,149 +102,235 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
-    if (_user == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('User not found')));
+    if (_loading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppTheme.accent),
+              const SizedBox(height: 16),
+              Text('Loading profile...', style: TextStyle(color: AppTheme.textMuted)),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_user == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.person_off_outlined, size: 48, color: AppTheme.textMuted),
+              const SizedBox(height: 12),
+              const Text('User not found', style: TextStyle(color: AppTheme.textMuted, fontSize: 16)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => context.go('/'), child: const Text('Go home')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final me = MeProvider.of(context);
+    final isOwnProfile = me != null && me['username'] == widget.username;
+    final isEmbers = _user!['isEmbers'] as bool? ?? false;
 
     return Scaffold(
       body: RefreshIndicator(
         color: AppTheme.accent,
         onRefresh: _load,
         child: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 180,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [AppTheme.accent.withOpacity(0.3), AppTheme.black],
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    CircleAvatar(
-                      radius: 36,
-                      backgroundColor: AppTheme.accent.withOpacity(0.2),
-                      child: Text(
-                        (_user!['name'] ?? _user!['username'] ?? '?')[0].toUpperCase(),
-                        style: const TextStyle(color: AppTheme.accent, fontSize: 28, fontWeight: FontWeight.w700),
-                      ),
+          slivers: [
+            // Header
+            SliverAppBar(
+              expandedHeight: 200,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [AppTheme.accent.withOpacity(0.25), AppTheme.black],
                     ),
-                    const SizedBox(height: 8),
-                    Text(_user!['name'] ?? '', style: Theme.of(context).textTheme.titleLarge),
-                    Text('@${_user!['username'] ?? ''}', style: Theme.of(context).textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // Clips count only — no follower counts per RULE_001
-                  Row(
+                  ),
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _Stat(label: 'Clips', value: '${_clips.length}'),
+                      const SizedBox(height: 48),
+                      // Avatar
+                      Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppTheme.accent.withOpacity(0.2),
+                            child: Text(
+                              (_user!['name'] ?? _user!['username'] ?? '?')[0].toUpperCase(),
+                              style: const TextStyle(color: AppTheme.accent, fontSize: 32, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          if (isEmbers)
+                            Positioned(
+                              bottom: 0, right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.accent,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.local_fire_department, color: Colors.white, size: 14),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(_user!['name'] ?? '', style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 2),
+                      Text('@${_user!['username'] ?? ''}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textDim)),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Voice bio player (spec 7.10/7.11)
-                  if (_user!['voiceBioPath'] != null) ...[
-                    _BioBanner(
-                      bioUrl: _user!['voiceBioPath'] as String,
-                      player: _bioPlayer,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: Builder(builder: (context) {
-                      final me = MeProvider.of(context);
-                      final isOwnProfile = me != null && me['username'] == widget.username;
-                      if (isOwnProfile) {
-                        return Column(
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () => context.push('/voice-bio'),
-                                icon: const Icon(Icons.edit_outlined, size: 16),
-                                label: const Text('Edit profile'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.textMuted,
-                                  side: const BorderSide(color: AppTheme.border),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: () => _logout(context),
-                                icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
-                                label: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Colors.redAccent, width: 0.5),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return ElevatedButton(
-                        onPressed: _toggleFollow,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: (_user!['isFollowing'] as bool? ?? false) ? AppTheme.surface : AppTheme.accent,
-                          side: (_user!['isFollowing'] as bool? ?? false) ? const BorderSide(color: AppTheme.border) : null,
-                        ),
-                        child: Text((_user!['isFollowing'] as bool? ?? false) ? 'Following' : 'Follow'),
-                      );
-                    }),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) => ClipCard(clip: _clips[i]),
-              childCount: _clips.length,
-            ),
-          ),
-          if (_clips.isEmpty)
-            const SliverToBoxAdapter(
+
+            // Profile content
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(40),
-                child: Center(child: Text('No clips yet', style: TextStyle(color: AppTheme.textMuted))),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    // Clips count
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.border, width: 0.5),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.mic_rounded, size: 16, color: AppTheme.accent),
+                          const SizedBox(width: 8),
+                          Text('${_clips.length}', style: Theme.of(context).textTheme.titleLarge),
+                          const SizedBox(width: 4),
+                          Text('voices', style: Theme.of(context).textTheme.bodyMedium),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Voice bio player
+                    if (_user!['voiceBioPath'] != null) ...[
+                      _BioBanner(
+                        bioUrl: _user!['voiceBioPath'] as String,
+                        player: _bioPlayer,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // Action buttons
+                    if (isOwnProfile)
+                      Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => context.push('/voice-bio'),
+                                  icon: const Icon(Icons.mic_rounded, size: 16),
+                                  label: Text(_user!['voiceBioPath'] != null ? 'Update bio' : 'Record bio'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.accent,
+                                    side: const BorderSide(color: AppTheme.border),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => context.push('/embers'),
+                                  icon: const Icon(Icons.local_fire_department, size: 16, color: AppTheme.accent),
+                                  label: Text(isEmbers ? 'Embers active' : 'Get Embers'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.textMuted,
+                                    side: const BorderSide(color: AppTheme.border),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
+                              onPressed: () => _logout(context),
+                              icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
+                              label: const Text('Log out', style: TextStyle(color: Colors.redAccent, fontSize: 13)),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _toggleFollow,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: (_user!['isFollowing'] as bool? ?? false) ? AppTheme.surface : AppTheme.accent,
+                            side: (_user!['isFollowing'] as bool? ?? false) ? const BorderSide(color: AppTheme.border) : null,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text((_user!['isFollowing'] as bool? ?? false) ? 'Following' : 'Follow'),
+                        ),
+                      ),
+
+                    const SizedBox(height: 8),
+                    const Divider(),
+                  ],
+                ),
               ),
             ),
-        ],
+
+            // Clips list
+            if (_clips.isEmpty)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.mic_none_rounded, size: 40, color: AppTheme.textMuted),
+                        SizedBox(height: 8),
+                        Text('No voices yet', style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => ClipCard(clip: _clips[i]),
+                  childCount: _clips.length,
+                ),
+              ),
+
+            // Bottom spacing
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Stat({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value, style: Theme.of(context).textTheme.headlineMedium),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
     );
   }
 }
@@ -275,7 +379,7 @@ class _BioBannerState extends State<_BioBanner> {
     return GestureDetector(
       onTap: _toggle,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -284,9 +388,15 @@ class _BioBannerState extends State<_BioBanner> {
         child: Row(
           children: [
             Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
-              child: Icon(_playing ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 20),
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: _playing ? AppTheme.accent : AppTheme.accent.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: _playing ? Colors.white : AppTheme.accent, size: 22,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -294,11 +404,15 @@ class _BioBannerState extends State<_BioBanner> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Voice bio', style: Theme.of(context).textTheme.titleMedium),
-                  Text(_playing ? 'Playing...' : 'Tap to listen', style: Theme.of(context).textTheme.bodyMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    _playing ? 'Playing...' : 'Tap to listen',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textDim),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.mic_rounded, size: 16, color: AppTheme.textMuted),
+            Icon(Icons.graphic_eq_rounded, size: 20, color: _playing ? AppTheme.accent : AppTheme.textMuted),
           ],
         ),
       ),

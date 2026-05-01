@@ -24,7 +24,7 @@ class _ClipCardState extends State<ClipCard> {
     if (insertedAt == null) return '';
     try {
       final dt = DateTime.parse(insertedAt.replaceAll(' ', 'T'));
-      final diff = DateTime.now().difference(dt);
+      final diff = DateTime.now().toUtc().difference(dt);
       if (diff.inMinutes < 1) return 'now';
       if (diff.inHours < 1) return '${diff.inMinutes}m';
       if (diff.inDays < 1) return '${diff.inHours}h';
@@ -37,9 +37,18 @@ class _ClipCardState extends State<ClipCard> {
     if (expiresAt == null) return null;
     try {
       final dt = DateTime.parse(expiresAt.replaceAll(' ', 'T'));
-      final hoursLeft = dt.difference(DateTime.now()).inHours;
+      final hoursLeft = dt.difference(DateTime.now().toUtc()).inHours;
       if (hoursLeft <= 0) return null;
       return '${hoursLeft}h left';
+    } catch (_) { return null; }
+  }
+
+  double? _expiryProgress(String? expiresAt) {
+    if (expiresAt == null) return null;
+    try {
+      final dt = DateTime.parse(expiresAt.replaceAll(' ', 'T'));
+      final hoursLeft = dt.difference(DateTime.now().toUtc()).inHours;
+      return (hoursLeft / 72).clamp(0.0, 1.0);
     } catch (_) { return null; }
   }
 
@@ -53,44 +62,50 @@ class _ClipCardState extends State<ClipCard> {
         ? waveformRaw.split(',').map((e) => (double.tryParse(e) ?? 0.0) / 100.0).toList()
         : null;
     final expiryLabel = _expiryLabel(clip['expiresAt'] as String?);
+    final expiryProg = _expiryProgress(clip['expiresAt'] as String?);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border, width: 0.5),
-      ),
-      child: Column(
+    return GestureDetector(
+      onTap: () => context.push('/clip/${clip['id']}'),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border, width: 0.5),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Expiry bar — ember→gold gradient (spec 7.5)
-            if (expiryLabel != null)
+            // Expiry bar
+            if (expiryProg != null)
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                child: Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppTheme.accent, AppTheme.gold],
-                      stops: [_expiryProgress(clip['expiresAt'] as String?) ?? 1.0, 1.0],
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Container(
+                    height: 2.5,
+                    width: constraints.maxWidth * expiryProg,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppTheme.accent, AppTheme.gold],
+                      ),
                     ),
                   ),
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header
+                  // Header row
                   Row(
                     children: [
+                      // Avatar
                       GestureDetector(
                         onTap: () => context.push('/profile/${user['username']}'),
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundColor: AppTheme.accent.withOpacity(0.2),
+                          backgroundColor: AppTheme.accent.withOpacity(0.15),
                           child: Text(
                             (user['name'] ?? user['username'] ?? '?')[0].toUpperCase(),
                             style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 14),
@@ -98,73 +113,86 @@ class _ClipCardState extends State<ClipCard> {
                         ),
                       ),
                       const SizedBox(width: 10),
+                      // Name + handle
                       Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(user['name'] ?? user['username'] ?? '',
-                                style: Theme.of(context).textTheme.titleMedium,
+                        child: GestureDetector(
+                          onTap: () => context.push('/profile/${user['username']}'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user['name'] ?? user['username'] ?? '',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFFF0E6D3)),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text('@${user['username'] ?? ''}',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                              Text(
+                                '@${user['username'] ?? ''}',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.textDim),
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                      if (clip['topic'] != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(clip['topic'], style: const TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.w600)),
-                        ),
-                      const SizedBox(width: 8),
-                      // Expiry tag (spec 7.5: "Nh left")
-                      if (expiryLabel != null) ...[
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accent.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: AppTheme.accent.withOpacity(0.3)),
-                          ),
-                          child: Text(expiryLabel, style: TextStyle(color: AppTheme.accent, fontSize: 10, fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () => context.push('/clip/${clip['id']}'),
-                        child: Text(_timeAgo(clip['insertedAt'] as String?), style: Theme.of(context).textTheme.bodyMedium),
-                      ),
-                      // Own clip actions — absorb tap so card doesn't navigate
-                      GestureDetector(
-                        onTap: () {}, // absorb
-                        child: _OwnClipActions(
-                          clip: clip,
-                          onDeleted: () => setState(() => _deleted = true),
-                        ),
+                      // Time ago
+                      Text(_timeAgo(clip['insertedAt'] as String?),
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+                      // Own clip actions
+                      _OwnClipActions(
+                        clip: clip,
+                        onDeleted: () => setState(() => _deleted = true),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 4),
+
+                  // Tags row
+                  Row(
+                    children: [
+                      if (clip['topic'] != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.gold.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.gold.withOpacity(0.15)),
+                          ),
+                          child: Text(clip['topic'],
+                            style: const TextStyle(color: AppTheme.gold, fontSize: 10, fontWeight: FontWeight.w600)),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (expiryLabel != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('\u2B21 ', style: TextStyle(color: AppTheme.accent, fontSize: 8)),
+                              Text(expiryLabel,
+                                style: const TextStyle(color: AppTheme.accent, fontSize: 10, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
                   // Audio player
                   AudioPlayerWidget(
                     url: clip['audioPath'] ?? '',
                     waveform: waveform,
                     duration: clip['duration'] as int?,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
+
                   // Actions row
                   Row(
                     children: [
@@ -174,17 +202,17 @@ class _ClipCardState extends State<ClipCard> {
                         count: clip['repliesCount'] ?? 0,
                         onTap: widget.onReply ?? () => context.push('/clip/${clip['id']}'),
                       ),
-                      const SizedBox(width: 16),
-                      // Whisper — private reply (spec 9.2)
+                      const SizedBox(width: 20),
+                      // Whisper
                       GestureDetector(
                         onTap: () => context.push('/clip/${clip['id']}'),
-                        child: Tooltip(
-                          message: 'Private — only the poster hears this',
+                        child: const Tooltip(
+                          message: 'Private voice reply',
                           child: Row(
                             children: [
-                              Icon(Icons.record_voice_over_outlined, size: 18, color: AppTheme.textMuted),
-                              const SizedBox(width: 4),
-                              Text('Whisper', style: Theme.of(context).textTheme.bodyMedium),
+                              Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.textMuted),
+                              SizedBox(width: 4),
+                              Text('Whisper', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                             ],
                           ),
                         ),
@@ -202,16 +230,8 @@ class _ClipCardState extends State<ClipCard> {
             ),
           ],
         ),
+      ),
     );
-  }
-
-  double? _expiryProgress(String? expiresAt) {
-    if (expiresAt == null) return null;
-    try {
-      final dt = DateTime.parse(expiresAt.replaceAll(' ', 'T'));
-      final hoursLeft = dt.difference(DateTime.now()).inHours;
-      return (hoursLeft / 72).clamp(0.0, 1.0);
-    } catch (_) { return null; }
   }
 }
 
@@ -219,20 +239,23 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final int count;
   final VoidCallback onTap;
-  final String? label;
 
-  const _ActionBtn({required this.icon, required this.count, required this.onTap, this.label});
+  const _ActionBtn({required this.icon, required this.count, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: AppTheme.textMuted),
-          const SizedBox(width: 4),
-          Text(label ?? '$count', style: Theme.of(context).textTheme.bodyMedium),
-        ],
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppTheme.textMuted),
+            const SizedBox(width: 4),
+            Text('$count', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
@@ -249,25 +272,40 @@ class _PulseBtn extends StatefulWidget {
   State<_PulseBtn> createState() => _PulseBtnState();
 }
 
-class _PulseBtnState extends State<_PulseBtn> {
+class _PulseBtnState extends State<_PulseBtn> with SingleTickerProviderStateMixin {
   late bool _pulsed;
+  late AnimationController _animController;
+  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
     _pulsed = widget.hasPulsed;
+    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _animController, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   Future<void> _pulse() async {
     if (_pulsed) return;
-    HapticFeedback.mediumImpact(); // immediate feedback
+    HapticFeedback.mediumImpact();
+    _animController.forward(from: 0);
+    setState(() => _pulsed = true); // Optimistic update
     final client = GraphQLProvider.of(context).value;
     final result = await client.mutate(MutationOptions(
       document: gql(kPulse),
       variables: {'postId': widget.clipId},
     ));
-    if (!result.hasException && mounted) {
-      setState(() => _pulsed = true);
+    if (result.hasException && mounted) {
+      setState(() => _pulsed = false); // Revert on failure
     }
   }
 
@@ -275,27 +313,33 @@ class _PulseBtnState extends State<_PulseBtn> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _pulse,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: _pulsed ? AppTheme.accent.withOpacity(0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _pulsed ? AppTheme.accent.withOpacity(0.4) : AppTheme.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.show_chart_rounded, size: 16, color: _pulsed ? AppTheme.accent : AppTheme.textMuted),
-            // No count shown — RULE_003
-          ],
+      behavior: HitTestBehavior.opaque,
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: _pulsed ? AppTheme.pulse.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _pulsed ? AppTheme.pulse.withOpacity(0.3) : AppTheme.border,
+              width: _pulsed ? 1.0 : 0.5,
+            ),
+          ),
+          child: Icon(
+            _pulsed ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            size: 16,
+            color: _pulsed ? AppTheme.pulse : AppTheme.textMuted,
+          ),
+          // No count shown — RULE_003
         ),
       ),
     );
   }
 }
 
-/// Shows preserve/delete for own clips only (spec 4.3, 9.3)
+/// Shows preserve/delete for own clips only
 class _OwnClipActions extends StatelessWidget {
   final Map<String, dynamic> clip;
   final VoidCallback? onDeleted;
@@ -310,11 +354,23 @@ class _OwnClipActions extends StatelessWidget {
     if (!context.mounted) return;
     if (result.hasException) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed')),
+        SnackBar(
+          content: Text(result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed to preserve'),
+          backgroundColor: AppTheme.surface,
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice preserved ✓')),
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: AppTheme.accent, size: 18),
+              SizedBox(width: 8),
+              Text('Voice preserved'),
+            ],
+          ),
+          backgroundColor: AppTheme.surface,
+        ),
       );
     }
   }
@@ -324,7 +380,8 @@ class _OwnClipActions extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('Delete clip?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete this voice?'),
         content: const Text('This cannot be undone.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
@@ -355,16 +412,29 @@ class _OwnClipActions extends StatelessWidget {
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_horiz, size: 18, color: AppTheme.textMuted),
       color: AppTheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onSelected: (v) {
         if (v == 'preserve') _preserve(context);
         if (v == 'delete') _delete(context);
       },
       itemBuilder: (_) => [
         if (isEmbers && hasExpiry)
-          const PopupMenuItem(value: 'preserve', child: Text('Preserve voice')),
+          const PopupMenuItem(value: 'preserve', child: Row(
+            children: [
+              Icon(Icons.bookmark_border, size: 18, color: AppTheme.accent),
+              SizedBox(width: 8),
+              Text('Preserve voice'),
+            ],
+          )),
         const PopupMenuItem(
           value: 'delete',
-          child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          child: Row(
+            children: [
+              Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+              SizedBox(width: 8),
+              Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            ],
+          ),
         ),
       ],
     );

@@ -3,12 +3,12 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:async';
 import 'core/theme.dart';
 import 'core/services.dart';
 import 'core/fcm_service.dart';
-import 'core/phoenix_socket.dart';
 import 'core/me_provider.dart';
 import 'core/queries.dart';
 import 'core/cloudinary_service.dart';
@@ -29,7 +29,11 @@ import 'features/profile/profile_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHiveForFlutter();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    // Firebase may not be configured in all environments
+  }
   final auth = AuthService();
   await auth.load();
   runApp(VoxaApp(auth: auth));
@@ -77,7 +81,10 @@ class _VoxaAppState extends State<VoxaApp> {
       GoRoute(path: '/register', builder: (_, __) => RegisterScreen(auth: widget.auth)),
       GoRoute(path: '/voice-bio', builder: (_, __) => VoiceBioScreen(token: widget.auth.token)),
       ShellRoute(
-        builder: (_, __, child) => MeLoader(child: MainShell(child: child)),
+        builder: (_, __, child) => AuthProvider(
+          auth: widget.auth,
+          child: MeLoader(child: MainShell(child: child)),
+        ),
         routes: [
           GoRoute(path: '/', builder: (_, __) => const FeedScreen()),
           GoRoute(path: '/discover', builder: (_, __) => const DiscoverScreen()),
@@ -118,6 +125,19 @@ class _VoxaAppState extends State<VoxaApp> {
   }
 }
 
+/// InheritedWidget to provide AuthService down the tree
+class AuthProvider extends InheritedWidget {
+  final AuthService auth;
+
+  const AuthProvider({super.key, required this.auth, required super.child});
+
+  static AuthService? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AuthProvider>()?.auth;
+
+  @override
+  bool updateShouldNotify(AuthProvider old) => auth != old.auth;
+}
+
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -126,9 +146,12 @@ class MainShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
 
+    // Hide bottom nav on record and clip detail screens
+    final hideNav = location == '/record' || location.startsWith('/clip/');
+
     final navIndex = switch (location) {
       '/' => 0,
-      String l when l.startsWith('/discover') => 1,
+      String l when l.startsWith('/discover') || l.startsWith('/search') => 1,
       String l when l.startsWith('/circles') => 2,
       String l when l.startsWith('/notifications') => 3,
       String l when l.startsWith('/profile') => 4,
@@ -137,50 +160,105 @@ class MainShell extends StatelessWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+      extendBody: true,
+      bottomNavigationBar: hideNav ? null : _VoxaBottomNav(
+        currentIndex: navIndex,
+        onRecordTap: () => context.push('/record'),
+      ),
+    );
+  }
+}
+
+/// Custom bottom navigation bar with centered record button
+class _VoxaBottomNav extends StatelessWidget {
+  final int currentIndex;
+  final VoidCallback onRecordTap;
+
+  const _VoxaBottomNav({required this.currentIndex, required this.onRecordTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.black,
+        border: const Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: SafeArea(
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(icon: Icons.home_rounded, label: 'Feed', active: currentIndex == 0,
+                onTap: () => context.go('/')),
+              _NavItem(icon: Icons.explore_rounded, label: 'Discover', active: currentIndex == 1,
+                onTap: () => context.go('/discover')),
+              // Centered record button
+              GestureDetector(
+                onTap: onRecordTap,
+                child: Container(
+                  width: 52, height: 52,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppTheme.accent, Color(0xFFC0431A)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: AppTheme.accent.withOpacity(0.4), blurRadius: 16, spreadRadius: 2),
+                      BoxShadow(color: AppTheme.accent.withOpacity(0.15), blurRadius: 4, spreadRadius: 4),
+                    ],
+                  ),
+                  child: const Icon(Icons.mic_rounded, color: Colors.white, size: 26),
+                ),
+              ),
+              _NavItem(icon: Icons.notifications_outlined, label: 'Alerts', active: currentIndex == 3,
+                onTap: () => context.go('/notifications')),
+              _NavItem(icon: Icons.person_rounded, label: 'Profile', active: currentIndex == 4,
+                onTap: () {
+                  final me = MeProvider.of(context);
+                  final username = me?['username'] as String?;
+                  if (username != null) {
+                    context.go('/profile/$username');
+                  }
+                }),
+            ],
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: navIndex,
-          onTap: (i) {
-            switch (i) {
-              case 0: context.go('/');
-              case 1: context.go('/discover');
-              case 2: context.go('/circles');
-              case 3: context.go('/notifications');
-              case 4:
-                final me = MeProvider.of(context);
-                final username = me?['username'] as String?;
-                if (username != null) {
-                  context.go('/profile/$username');
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Loading profile...'), duration: Duration(seconds: 1)),
-                  );
-                }
-            }
-          },
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Feed'),
-            BottomNavigationBarItem(icon: Icon(Icons.explore_rounded), label: 'Discover'),
-            BottomNavigationBarItem(icon: Icon(Icons.group_rounded), label: 'Circles'),
-            BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Alerts'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _NavItem({required this.icon, required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 56,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: active ? AppTheme.accent : AppTheme.textDim),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(
+              fontSize: 10,
+              color: active ? AppTheme.accent : AppTheme.textDim,
+              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+            )),
           ],
         ),
       ),
-      // Record FAB (spec 7.4)
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: FloatingActionButton(
-          onPressed: () => context.push('/record'),
-          backgroundColor: AppTheme.accent,
-          elevation: 4,
-          child: const Icon(Icons.mic_rounded, color: Colors.white),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -233,61 +311,93 @@ class _ClipDetailScreenState extends State<ClipDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
-    if (_clip == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('Clip not found')));
+    if (_loading) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+      );
+    }
+    if (_clip == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.mic_off_rounded, size: 48, color: AppTheme.textMuted),
+              const SizedBox(height: 12),
+              const Text('Voice not found', style: TextStyle(color: AppTheme.textMuted, fontSize: 16)),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: () => context.go('/'), child: const Text('Go home')),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(_clip!['user']?['name'] ?? '')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipCard(
-              clip: _clip!,
-              onReply: () => _showReplySheet(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showReplySheet(),
-                    icon: const Icon(Icons.mic_rounded, size: 18),
-                    label: const Text('Reply'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showReplySheet(isWhisper: true),
-                    icon: const Icon(Icons.record_voice_over_outlined, size: 18),
-                    label: const Text('Whisper'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textMuted,
-                      side: const BorderSide(color: AppTheme.border),
+      body: RefreshIndicator(
+        color: AppTheme.accent,
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipCard(
+                clip: _clip!,
+                onReply: () => _showReplySheet(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showReplySheet(),
+                      icon: const Icon(Icons.mic_rounded, size: 18),
+                      label: const Text('Reply'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showReplySheet(isWhisper: true),
+                      icon: const Icon(Icons.record_voice_over_outlined, size: 18),
+                      label: const Text('Whisper'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.textMuted,
+                        side: const BorderSide(color: AppTheme.border),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              // Replies list
+              if ((_clip!['replies'] as List?)?.isNotEmpty == true) ...[
+                const SizedBox(height: 24),
+                Text('Replies', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                ...(_clip!['replies'] as List).cast<Map<String, dynamic>>()
+                    .where((r) => r['isWhisper'] != true)
+                    .map((r) => ClipCard(clip: r)),
               ],
-            ),
-            // Replies list
-            if ((_clip!['replies'] as List?)?.isNotEmpty == true) ...[
-              const SizedBox(height: 24),
-              Text('Replies', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ...(_clip!['replies'] as List).cast<Map<String, dynamic>>()
-                  .where((r) => r['isWhisper'] != true)
-                  .map((r) => ClipCard(clip: r)),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Bottom sheet for recording a reply or whisper (spec 9.1, 9.2)
+/// Bottom sheet for recording a reply or whisper
 class _ReplySheet extends StatefulWidget {
   final String postId;
   final bool isWhisper;
@@ -300,7 +410,9 @@ class _ReplySheet extends StatefulWidget {
 
 class _ReplySheetState extends State<_ReplySheet> {
   final _recorder = AudioRecorder();
+  final _player = AudioPlayer();
   bool _isRecording = false;
+  bool _isPlaying = false;
   bool _uploading = false;
   String? _filePath;
   Duration _elapsed = Duration.zero;
@@ -312,6 +424,7 @@ class _ReplySheetState extends State<_ReplySheet> {
   void dispose() {
     _timer?.cancel();
     _recorder.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -330,13 +443,34 @@ class _ReplySheetState extends State<_ReplySheet> {
         if (_elapsed.inSeconds >= 180) _stop();
       });
     });
-    setState(() { _isRecording = true; _filePath = path; _elapsed = Duration.zero; _waveform.clear(); });
+    setState(() { _isRecording = true; _filePath = path; _elapsed = Duration.zero; _waveform.clear(); _error = null; });
   }
 
   Future<void> _stop() async {
     _timer?.cancel();
     await _recorder.stop();
     setState(() => _isRecording = false);
+  }
+
+  Future<void> _togglePreview() async {
+    if (_filePath == null) return;
+    if (_isPlaying) {
+      await _player.pause();
+      setState(() => _isPlaying = false);
+    } else {
+      try {
+        if (_player.processingState == ProcessingState.idle ||
+            _player.processingState == ProcessingState.completed) {
+          await _player.setFilePath(_filePath!);
+        }
+        await _player.seek(Duration.zero);
+        await _player.play();
+        setState(() => _isPlaying = true);
+        _player.playerStateStream.firstWhere(
+          (s) => s.processingState == ProcessingState.completed,
+        ).then((_) { if (mounted) setState(() => _isPlaying = false); });
+      } catch (_) {}
+    }
   }
 
   Future<void> _send() async {
@@ -364,59 +498,115 @@ class _ReplySheetState extends State<_ReplySheet> {
         return;
       }
       widget.onSent();
+    } on CloudinaryUploadException catch (e) {
+      if (mounted) setState(() { _error = e.message; _uploading = false; });
     } catch (e) {
-      setState(() { _error = 'Error: $e'; _uploading = false; });
+      if (mounted) setState(() { _error = 'Error sending. Try again.'; _uploading = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasRecording = _filePath != null && !_isRecording;
+
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Handle bar
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: AppTheme.textMuted,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           Text(widget.isWhisper ? 'Send a Whisper' : 'Reply with voice',
             style: Theme.of(context).textTheme.titleLarge),
           if (widget.isWhisper)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text('Only the poster will hear this', style: Theme.of(context).textTheme.bodyMedium),
+              child: Text('Only the poster will hear this',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.textDim)),
             ),
           const SizedBox(height: 24),
-          GestureDetector(
-            onTap: _isRecording ? _stop : (_filePath == null ? _start : null),
-            child: Container(
-              width: 72, height: 72,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: _isRecording ? Colors.red : AppTheme.accent,
+          // Record / preview button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (hasRecording) ...[
+                // Preview
+                GestureDetector(
+                  onTap: _togglePreview,
+                  child: Container(
+                    width: 48, height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.surface,
+                      border: Border.all(color: AppTheme.accent.withOpacity(0.4)),
+                    ),
+                    child: Icon(
+                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: AppTheme.accent, size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+              ],
+              GestureDetector(
+                onTap: _isRecording ? _stop : (hasRecording ? null : _start),
+                child: Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _isRecording ? Colors.red : (hasRecording ? AppTheme.surface : AppTheme.accent),
+                    border: hasRecording && !_isRecording ? Border.all(color: AppTheme.border) : null,
+                  ),
+                  child: Icon(
+                    _isRecording ? Icons.stop_rounded : (hasRecording ? Icons.check_rounded : Icons.mic_rounded),
+                    color: hasRecording && !_isRecording ? AppTheme.accent : Colors.white,
+                    size: 32,
+                  ),
+                ),
               ),
-              child: Icon(_isRecording ? Icons.stop_rounded : Icons.mic_rounded, color: Colors.white, size: 32),
-            ),
+            ],
           ),
           const SizedBox(height: 12),
           Text(
             _isRecording
                 ? '${_elapsed.inSeconds}s recording...'
-                : _filePath != null ? 'Recorded ✓' : 'Tap to record',
+                : hasRecording ? 'Recorded ${_elapsed.inSeconds}s' : 'Tap to record',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
             Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
           ],
-          if (_filePath != null && !_isRecording) ...[
+          if (hasRecording) ...[
             const SizedBox(height: 16),
             Row(children: [
               Expanded(child: OutlinedButton(
-                onPressed: () => setState(() { _filePath = null; _waveform.clear(); _elapsed = Duration.zero; }),
-                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.textMuted, side: const BorderSide(color: AppTheme.border)),
+                onPressed: () {
+                  _player.stop();
+                  setState(() { _filePath = null; _waveform.clear(); _elapsed = Duration.zero; _isPlaying = false; });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.textMuted,
+                  side: const BorderSide(color: AppTheme.border),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: const Text('Redo'),
               )),
               const SizedBox(width: 12),
               Expanded(child: ElevatedButton(
                 onPressed: _uploading ? null : _send,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 child: _uploading
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(widget.isWhisper ? 'Send Whisper' : 'Send Reply'),

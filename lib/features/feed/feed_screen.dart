@@ -22,7 +22,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _forYou = [];
   List<Map<String, dynamic>> _following = [];
   List<Map<String, dynamic>> _ember = [];
-  bool _loading = false;
+  bool _loading = true;
   bool _showEmber = false;
   bool _hasNewPosts = false;
   StreamSubscription? _feedSub;
@@ -31,10 +31,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this); // initialized early, updated in didChangeDependencies
+    _tabs = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final cached = await FeedCache.load();
-      if (cached.isNotEmpty && mounted) setState(() => _forYou = cached);
+      if (cached.isNotEmpty && mounted) setState(() { _forYou = cached; _loading = false; });
       _load();
     });
   }
@@ -71,7 +71,6 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   void didChangeDependencies() {
     super.didChangeDependencies();
     final me = MeProvider.of(context);
-    // Subscribe socket once MeProvider has data
     _subscribeSocket();
     final showEmber = _checkEmberFeed(me);
     if (showEmber != _showEmber) {
@@ -94,10 +93,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _load() async {
-    if (_loading) return;
-    setState(() => _loading = true);
     final client = GraphQLProvider.of(context).value;
-    // Always load For You. Load Following and Ember only if needed.
     final futures = <Future>[
       client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)),
       client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
@@ -120,7 +116,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         if (!r2.hasException) _ember = (r2.data!['emberFeed'] as List).cast<Map<String, dynamic>>();
       }
       _loading = false;
-      _hasNewPosts = false; // clear banner after reload
+      _hasNewPosts = false;
     });
   }
 
@@ -133,9 +129,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       if (_showEmber) const Tab(text: 'Ember'),
     ];
     final views = <Widget>[
-      _ClipList(clips: _forYou, emptyMessage: 'No voices yet\nBe the first to speak'),
-      _ClipList(clips: _following, emptyMessage: 'Follow people to hear their voices', suggestUsers: true),
-      if (_showEmber) _ClipList(clips: _ember, emptyMessage: 'No ember voices yet'),
+      _ClipList(clips: _forYou, loading: _loading, emptyMessage: 'No voices yet\nBe the first to speak', emptyIcon: Icons.campaign_rounded),
+      _ClipList(clips: _following, loading: _loading, emptyMessage: 'Follow people to hear\ntheir voices', suggestUsers: true, emptyIcon: Icons.people_outline_rounded),
+      if (_showEmber) _ClipList(clips: _ember, loading: _loading, emptyMessage: 'No ember voices yet', emptyIcon: Icons.local_fire_department_outlined),
     ];
 
     return Scaffold(
@@ -144,41 +140,49 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 26, height: 26,
-              decoration: BoxDecoration(color: AppTheme.accent, borderRadius: BorderRadius.circular(8)),
-              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 14),
+              width: 28, height: 28,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppTheme.accent, Color(0xFFC0431A)],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.mic_rounded, color: Colors.white, size: 15),
             ),
             const SizedBox(width: 8),
-            const VoxaLogo(fontSize: 20),
+            const VoxaLogo(fontSize: 22),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.local_fire_department_rounded, color: AppTheme.accent),
+            icon: const Icon(Icons.local_fire_department_rounded, color: AppTheme.accent, size: 22),
             onPressed: () => context.push('/embers'),
             tooltip: 'Embers',
           ),
           IconButton(
-            icon: const Icon(Icons.search_rounded),
+            icon: const Icon(Icons.search_rounded, size: 22),
             onPressed: () => context.push('/search'),
           ),
         ],
         bottom: TabBar(
           controller: tabs,
           indicatorColor: AppTheme.accent,
+          indicatorWeight: 2.5,
           labelColor: AppTheme.accent,
           unselectedLabelColor: AppTheme.textMuted,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           tabs: tabList,
         ),
       ),
       body: Stack(
         children: [
           RefreshIndicator(
-              color: AppTheme.accent,
-              backgroundColor: AppTheme.surface,
-              onRefresh: _load,
-              child: TabBarView(controller: tabs, children: views),
-            ),
+            color: AppTheme.accent,
+            backgroundColor: AppTheme.surface,
+            onRefresh: _load,
+            child: TabBarView(controller: tabs, children: views),
+          ),
+          // New posts banner
           if (_hasNewPosts)
             Positioned(
               top: 8, left: 0, right: 0,
@@ -212,16 +216,27 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
 class _ClipList extends StatefulWidget {
   final List<Map<String, dynamic>> clips;
+  final bool loading;
   final String emptyMessage;
   final bool suggestUsers;
-  const _ClipList({required this.clips, this.emptyMessage = 'No voices yet', this.suggestUsers = false});
+  final IconData emptyIcon;
+  const _ClipList({
+    required this.clips,
+    this.loading = false,
+    this.emptyMessage = 'No voices yet',
+    this.suggestUsers = false,
+    this.emptyIcon = Icons.mic_none_rounded,
+  });
 
   @override
   State<_ClipList> createState() => _ClipListState();
 }
 
-class _ClipListState extends State<_ClipList> {
+class _ClipListState extends State<_ClipList> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _suggested = [];
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -243,16 +258,37 @@ class _ClipListState extends State<_ClipList> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
+    // Loading skeleton
+    if (widget.loading && widget.clips.isEmpty) {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        itemCount: 4,
+        itemBuilder: (_, __) => const _SkeletonCard(),
+      );
+    }
+
+    // Empty state
     if (widget.clips.isEmpty) {
       return ListView(
         children: [
           Padding(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.fromLTRB(32, 60, 32, 24),
             child: Column(
               children: [
-                Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
-                const SizedBox(height: 12),
-                Text(widget.emptyMessage, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
+                Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(widget.emptyIcon, size: 36, color: AppTheme.accent.withOpacity(0.5)),
+                ),
+                const SizedBox(height: 16),
+                Text(widget.emptyMessage,
+                  style: const TextStyle(color: AppTheme.textDim, fontSize: 15, height: 1.4),
+                  textAlign: TextAlign.center),
               ],
             ),
           ),
@@ -261,31 +297,114 @@ class _ClipListState extends State<_ClipList> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text('People to follow', style: Theme.of(context).textTheme.titleMedium),
             ),
-            ..._suggested.take(10).map((u) => ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppTheme.accent.withOpacity(0.2),
-                child: Text((u['name'] ?? u['username'] ?? '?')[0].toUpperCase(),
-                  style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700)),
-              ),
-              title: Text(u['name'] ?? u['username'] ?? ''),
-              subtitle: Text('@${u['username'] ?? ''}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-              trailing: ElevatedButton(
-                onPressed: () => context.push('/profile/${u['username']}'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  minimumSize: Size.zero,
+            ..._suggested.take(10).map((u) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.border, width: 0.5),
                 ),
-                child: const Text('View', style: TextStyle(fontSize: 12)),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppTheme.accent.withOpacity(0.15),
+                      child: Text(
+                        (u['name'] ?? u['username'] ?? '?')[0].toUpperCase(),
+                        style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(u['name'] ?? u['username'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          Text('@${u['username'] ?? ''}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => context.push('/profile/${u['username']}'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        minimumSize: Size.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: const Text('View', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
               ),
             )),
           ],
         ],
       );
     }
+
+    // Feed list
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.only(top: 8, bottom: 80),
       itemCount: widget.clips.length,
       itemBuilder: (_, i) => ClipCard(clip: widget.clips[i]),
+    );
+  }
+}
+
+/// Skeleton loading card placeholder
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header skeleton
+          Row(
+            children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(width: 100, height: 12, decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(4))),
+                  const SizedBox(height: 6),
+                  Container(width: 60, height: 10, decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(4))),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Waveform skeleton
+          Row(
+            children: [
+              Container(width: 44, height: 44, decoration: BoxDecoration(color: AppTheme.surface, shape: BoxShape.circle)),
+              const SizedBox(width: 12),
+              Expanded(child: Container(height: 32, decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(4)))),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Actions skeleton
+          Container(width: 120, height: 10, decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(4))),
+        ],
+      ),
     );
   }
 }

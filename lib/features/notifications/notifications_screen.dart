@@ -6,8 +6,6 @@ import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/me_provider.dart';
 import '../../core/phoenix_socket.dart';
-import '../../core/me_provider.dart';
-import '../../core/phoenix_socket.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
