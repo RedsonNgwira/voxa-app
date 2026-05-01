@@ -26,7 +26,9 @@ class CloudinaryService {
       fetchPolicy: FetchPolicy.networkOnly,
     ));
 
-    if (sigResult.hasException) throw Exception('Failed to get upload signature');
+    if (sigResult.hasException) {
+      throw Exception('Signature error: ${sigResult.exception?.graphqlErrors.map((e) => e.message).join(", ")} | ${sigResult.exception?.linkException?.toString()}');
+    }
 
     final sig = sigResult.data!['cloudinarySignature'] as Map<String, dynamic>;
     final cloudName = sig['cloudName'] as String;
@@ -46,7 +48,11 @@ class CloudinaryService {
     request.fields['signature'] = signature;
     request.fields['resource_type'] = 'video';
 
-    request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    request.files.add(await http.MultipartFile.fromPath(
+      'file',
+      filePath,
+      filename: filePath.split('/').last, // use actual filename with correct extension
+    ));
 
     final response = await request.send();
     final body = await response.stream.bytesToString();

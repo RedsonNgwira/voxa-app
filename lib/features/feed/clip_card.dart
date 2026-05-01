@@ -98,11 +98,23 @@ class _ClipCardState extends State<ClipCard> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Text(user['name'] ?? user['username'] ?? '', style: Theme.of(context).textTheme.titleMedium),
-                            Text('@${user['username'] ?? ''}', style: Theme.of(context).textTheme.bodyMedium),
+                            Flexible(
+                              child: Text(user['name'] ?? user['username'] ?? '',
+                                style: Theme.of(context).textTheme.titleMedium,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text('@${user['username'] ?? ''}',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
                           ],
                         ),
                       ),

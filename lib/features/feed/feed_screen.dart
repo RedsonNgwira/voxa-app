@@ -139,6 +139,11 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.local_fire_department_rounded, color: AppTheme.accent),
+            onPressed: () => context.push('/embers'),
+            tooltip: 'Embers',
+          ),
+          IconButton(
             icon: const Icon(Icons.search_rounded),
             onPressed: () => context.push('/search'),
           ),
