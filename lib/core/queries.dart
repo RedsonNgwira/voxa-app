@@ -60,7 +60,7 @@ query Clip($id: ID!) {
     repliesCount parentId
     user { id name username }
     replies {
-      id audioPath duration waveform insertedAt isWhisper
+      id audioPath duration waveform insertedAt isWhisper hasPulsed playsCount repliesCount
       user { id name username }
     }
   }
@@ -82,8 +82,8 @@ mutation PreservePost($id: ID!) {
 ''';
 
 const String kCreateClip = r'''
-mutation CreateClip($audioUrl: String!, $cloudinaryPublicId: String!, $waveformData: [Float!]!, $durationSeconds: Int!, $category: String!, $mood: String) {
-  createClip(audioUrl: $audioUrl, cloudinaryPublicId: $cloudinaryPublicId, waveformData: $waveformData, durationSeconds: $durationSeconds, category: $category, mood: $mood) {
+mutation CreateClip($audioUrl: String!, $cloudinaryPublicId: String!, $waveformData: [Float!]!, $durationSeconds: Int!, $category: String!, $mood: String, $circleId: ID) {
+  createClip(audioUrl: $audioUrl, cloudinaryPublicId: $cloudinaryPublicId, waveformData: $waveformData, durationSeconds: $durationSeconds, category: $category, mood: $mood, circleId: $circleId) {
     id audioPath topic insertedAt
     user { id name username }
   }
@@ -163,7 +163,7 @@ query Search($q: String!) {
 const String kDiscover = r'''
 query Discover($topic: String, $mood: String) {
   discover(topic: $topic, mood: $mood) {
-    id audioPath duration topic mood playsCount insertedAt expiresAt hasPulsed repliesCount
+    id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed repliesCount
     user { id name username }
   }
 }

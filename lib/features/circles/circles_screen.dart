@@ -35,26 +35,6 @@ class _CirclesScreenState extends State<CirclesScreen> {
     });
   }
 
-  Future<void> _createCircle() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-    final client = GraphQLProvider.of(context).value;
-    final result = await client.mutate(MutationOptions(
-      document: gql(kCreateCircle),
-      variables: {'name': name, 'isPrivate': false},
-    ));
-    if (!mounted) return;
-    if (result.hasException) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed: ${result.exception?.graphqlErrors.firstOrNull?.message ?? 'Unknown error'}')),
-      );
-      return;
-    }
-    _nameController.clear();
-    Navigator.pop(context);
-    _load();
-  }
-
   // Circle is live if any post in last 2h (spec 7.7)
   bool _isCircleLive(Map<String, dynamic> circle) {
     final posts = (circle['posts'] as List?)?.cast<Map<String, dynamic>>() ?? [];
