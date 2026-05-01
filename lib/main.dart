@@ -145,8 +145,8 @@ class MainShell extends StatelessWidget {
               case 3: context.go('/notifications');
               case 4:
                 final me = MeProvider.of(context);
-                final username = me?['username'] as String? ?? 'me';
-                context.go('/profile/$username');
+                final username = me?['username'] as String?;
+                if (username != null) context.go('/profile/$username');
             }
           },
           items: const [
