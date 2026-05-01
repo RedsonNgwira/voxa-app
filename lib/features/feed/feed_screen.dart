@@ -97,7 +97,8 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     if (_loading) return;
     setState(() => _loading = true);
     final client = GraphQLProvider.of(context).value;
-    final futures = [
+    // Always load For You. Load Following and Ember only if needed.
+    final futures = <Future>[
       client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)),
       client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
     ];
@@ -107,15 +108,19 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     final results = await Future.wait(futures);
     if (!mounted) return;
     setState(() {
-      if (!results[0].hasException) {
-        _forYou = (results[0].data!['feed'] as List).cast<Map<String, dynamic>>();
+      final r0 = results[0] as QueryResult;
+      final r1 = results[1] as QueryResult;
+      if (!r0.hasException) {
+        _forYou = (r0.data!['feed'] as List).cast<Map<String, dynamic>>();
         FeedCache.save(_forYou);
       }
-      if (!results[1].hasException) _following = (results[1].data!['followingFeed'] as List).cast<Map<String, dynamic>>();
-      if (_showEmber && results.length > 2 && !results[2].hasException) {
-        _ember = (results[2].data!['emberFeed'] as List).cast<Map<String, dynamic>>();
+      if (!r1.hasException) _following = (r1.data!['followingFeed'] as List).cast<Map<String, dynamic>>();
+      if (_showEmber && results.length > 2) {
+        final r2 = results[2] as QueryResult;
+        if (!r2.hasException) _ember = (r2.data!['emberFeed'] as List).cast<Map<String, dynamic>>();
       }
       _loading = false;
+      _hasNewPosts = false; // clear banner after reload
     });
   }
 
@@ -210,8 +215,6 @@ class _ClipList extends StatelessWidget {
   final String emptyMessage;
   const _ClipList({required this.clips, this.emptyMessage = 'No voices yet'});
 
-  String get _emptyMessage => emptyMessage;
-
   @override
   Widget build(BuildContext context) {
     if (clips.isEmpty) {
@@ -222,7 +225,7 @@ class _ClipList extends StatelessWidget {
             Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
             const SizedBox(height: 12),
             Text(
-              _emptyMessage,
+              emptyMessage,
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),

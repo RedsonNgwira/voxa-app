@@ -61,7 +61,7 @@ class _ClipCardState extends State<ClipCard> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border, width: 0.5),
       ),
-        child: Column(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Expiry bar — ember→gold gradient (spec 7.5)
@@ -176,11 +176,18 @@ class _ClipCardState extends State<ClipCard> {
                       ),
                       const SizedBox(width: 16),
                       // Whisper — private reply (spec 9.2)
-                      _ActionBtn(
-                        icon: Icons.record_voice_over_outlined,
-                        count: 0,
-                        label: 'Whisper',
+                      GestureDetector(
                         onTap: () => context.push('/clip/${clip['id']}'),
+                        child: Tooltip(
+                          message: 'Private — only the poster hears this',
+                          child: Row(
+                            children: [
+                              Icon(Icons.record_voice_over_outlined, size: 18, color: AppTheme.textMuted),
+                              const SizedBox(width: 4),
+                              Text('Whisper', style: Theme.of(context).textTheme.bodyMedium),
+                            ],
+                          ),
+                        ),
                       ),
                       const Spacer(),
                       // Pulse button — no count shown (RULE_003)
