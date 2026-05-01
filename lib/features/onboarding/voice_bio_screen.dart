@@ -8,9 +8,11 @@ import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/cloudinary_service.dart';
+import '../../core/services.dart';
 
 class VoiceBioScreen extends StatefulWidget {
-  const VoiceBioScreen({super.key});
+  final String? token;
+  const VoiceBioScreen({super.key, this.token});
 
   @override
   State<VoiceBioScreen> createState() => _VoiceBioScreenState();
@@ -66,9 +68,12 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
     if (_filePath == null) return;
     setState(() { _uploading = true; _error = null; });
     try {
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, GraphQLProvider.of(context).value);
+      // Use token-specific client if provided (fixes token timing after registration)
+      final client = widget.token != null
+          ? GraphQLService.clientNotifier(widget.token).value
+          : GraphQLProvider.of(context).value;
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, client);
       final waveformData = _normalizeWaveform(_waveform, 48);
-      final client = GraphQLProvider.of(context).value;
       final result = await client.mutate(MutationOptions(
         document: gql(kSaveVoiceBio),
         variables: {'audioUrl': cloudinary['url'], 'waveformData': waveformData},
@@ -105,6 +110,17 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.black,
+      appBar: AppBar(
+        backgroundColor: AppTheme.black,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            if (context.canPop()) context.pop();
+            else context.go('/');
+          },
+        ),
+        title: const Text('Voice Bio'),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

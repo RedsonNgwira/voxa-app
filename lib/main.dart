@@ -69,7 +69,7 @@ class _VoxaAppState extends State<VoxaApp> {
     routes: [
       GoRoute(path: '/login', builder: (_, __) => LoginScreen(auth: widget.auth)),
       GoRoute(path: '/register', builder: (_, __) => RegisterScreen(auth: widget.auth)),
-      GoRoute(path: '/voice-bio', builder: (_, __) => const VoiceBioScreen()),
+      GoRoute(path: '/voice-bio', builder: (_, __) => VoiceBioScreen(token: widget.auth.token)),
       ShellRoute(
         builder: (_, __, child) => MeLoader(child: MainShell(child: child)),
         routes: [

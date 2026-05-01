@@ -39,9 +39,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
           : _notifications.isEmpty
               ? Center(child: Text('No notifications yet', style: Theme.of(context).textTheme.bodyMedium))
-              : ListView.builder(
-                  itemCount: _notifications.length,
-                  itemBuilder: (_, i) => _NotifTile(notif: _notifications[i]),
+              : RefreshIndicator(
+                  color: AppTheme.accent,
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    itemCount: _notifications.length,
+                    itemBuilder: (_, i) => _NotifTile(notif: _notifications[i]),
+                  ),
                 ),
     );
   }

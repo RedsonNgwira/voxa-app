@@ -118,9 +118,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       if (_showEmber) const Tab(text: 'Ember'),
     ];
     final views = <Widget>[
-      _ClipList(clips: _forYou),
-      _ClipList(clips: _following),
-      if (_showEmber) _ClipList(clips: _ember),
+      _ClipList(clips: _forYou, emptyMessage: 'No voices yet\nBe the first to speak'),
+      _ClipList(clips: _following, emptyMessage: 'Follow people to hear their voices'),
+      if (_showEmber) _ClipList(clips: _ember, emptyMessage: 'No ember voices yet'),
     ];
 
     return Scaffold(
@@ -168,7 +168,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
 
 class _ClipList extends StatelessWidget {
   final List<Map<String, dynamic>> clips;
-  const _ClipList({required this.clips});
+  final String emptyMessage;
+  const _ClipList({required this.clips, this.emptyMessage = 'No voices yet'});
+
+  String get _emptyMessage => emptyMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +182,11 @@ class _ClipList extends StatelessWidget {
           children: [
             Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
             const SizedBox(height: 12),
-            Text('No voices yet', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              _emptyMessage,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       );

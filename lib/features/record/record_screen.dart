@@ -139,7 +139,27 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        leading: IconButton(icon: const Icon(Icons.close), onPressed: () => context.go('/')),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () async {
+            if (_filePath != null || _isRecording) {
+              final discard = await showDialog<bool>(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: AppTheme.surface,
+                  title: const Text('Discard recording?'),
+                  content: const Text('Your recording will be lost.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
+                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+                  ],
+                ),
+              );
+              if (discard != true) return;
+            }
+            if (mounted) context.go('/');
+          },
+        ),
         title: const Text('Record'),
       ),
       body: SafeArea(
