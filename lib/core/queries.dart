@@ -205,6 +205,12 @@ mutation JoinCircle($circleId: ID!) {
 }
 ''';
 
+const String kLeaveCircle = r'''
+mutation LeaveCircle($circleId: ID!) {
+  leaveCircle(circleId: $circleId)
+}
+''';
+
 // Notifications
 const String kNotifications = r'''
 query Notifications {

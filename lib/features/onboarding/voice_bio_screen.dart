@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
@@ -20,7 +21,9 @@ class VoiceBioScreen extends StatefulWidget {
 
 class _VoiceBioScreenState extends State<VoiceBioScreen> {
   final _recorder = AudioRecorder();
+  final _player = AudioPlayer();
   bool _isRecording = false;
+  bool _isPlaying = false;
   bool _uploading = false;
   String? _filePath;
   Duration _elapsed = Duration.zero;
@@ -34,6 +37,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
   void dispose() {
     _timer?.cancel();
     _recorder.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -91,6 +95,21 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
       }
     } catch (e) {
       setState(() { _error = 'Failed: $e'; _uploading = false; });
+    }
+  }
+
+  Future<void> _togglePreview() async {
+    if (_filePath == null) return;
+    if (_isPlaying) {
+      await _player.pause();
+      setState(() => _isPlaying = false);
+    } else {
+      await _player.setFilePath(_filePath!);
+      await _player.play();
+      setState(() => _isPlaying = true);
+      _player.playerStateStream.firstWhere(
+        (s) => s.processingState == ProcessingState.completed,
+      ).then((_) { if (mounted) setState(() => _isPlaying = false); });
     }
   }
 
@@ -159,10 +178,31 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                _isRecording ? 'Recording...' : _filePath == null ? 'Tap to record' : 'Recorded',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
+              if (_filePath != null && !_isRecording)
+                GestureDetector(
+                  onTap: _togglePreview,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surface,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: AppTheme.accent, size: 20),
+                        const SizedBox(width: 8),
+                        Text(_isPlaying ? 'Playing...' : 'Preview', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  _isRecording ? 'Recording...' : 'Tap to record',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               const Spacer(),
               if (_error != null) ...[
                 Text(_error!, style: const TextStyle(color: Colors.redAccent)),

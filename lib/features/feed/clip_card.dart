@@ -184,7 +184,7 @@ class _ClipCardState extends State<ClipCard> {
                       const Spacer(),
                       // Pulse button — no count shown (RULE_003)
                       _PulseBtn(
-                        clipId: clip['id'] as String,
+                        clipId: clip['id'].toString(),
                         hasPulsed: clip['hasPulsed'] as bool? ?? false,
                       ),
                     ],

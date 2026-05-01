@@ -104,7 +104,7 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
           'audioUrl': cloudinary['url'],
           'cloudinaryPublicId': cloudinary['publicId'],
           'waveformData': waveformData,
-          'durationSeconds': _elapsed.inSeconds,
+          'durationSeconds': _elapsed.inSeconds > 0 ? _elapsed.inSeconds : 1,
           'category': _topic ?? 'General',
           'mood': null,
           'circleId': _circleId,

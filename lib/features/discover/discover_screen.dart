@@ -82,13 +82,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: AppTheme.accent))
-                : _clips.isEmpty
-                    ? Center(child: Text('No voices found', style: Theme.of(context).textTheme.bodyMedium))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        itemCount: _clips.length,
-                        itemBuilder: (_, i) => ClipCard(clip: _clips[i]),
-                      ),
+                : RefreshIndicator(
+                    color: AppTheme.accent,
+                    onRefresh: _load,
+                    child: _clips.isEmpty
+                        ? ListView(children: [Center(child: Padding(padding: const EdgeInsets.all(40), child: Text('No voices found', style: Theme.of(context).textTheme.bodyMedium)))])
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            itemCount: _clips.length,
+                            itemBuilder: (_, i) => ClipCard(clip: _clips[i]),
+                          ),
+                  ),
           ),
         ],
       ),

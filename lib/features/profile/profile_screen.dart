@@ -88,7 +88,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_user == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('User not found')));
 
     return Scaffold(
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        color: AppTheme.accent,
+        onRefresh: _load,
+        child: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 180,
@@ -206,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }

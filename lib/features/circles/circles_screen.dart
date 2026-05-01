@@ -197,6 +197,27 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
     });
   }
 
+  Future<void> _leaveCircle() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('Leave circle?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Leave', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    final client = GraphQLProvider.of(context).value;
+    await client.mutate(MutationOptions(
+      document: gql(kLeaveCircle),
+      variables: {'circleId': widget.id},
+    ));
+    if (mounted) context.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: AppTheme.accent)));
@@ -209,6 +230,11 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
       appBar: AppBar(
         title: Text(_circle!['name'] as String),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.exit_to_app_rounded, color: Colors.redAccent),
+            tooltip: 'Leave circle',
+            onPressed: _leaveCircle,
+          ),
           // Member avatars (max 5) per spec 7.8
           Padding(
             padding: const EdgeInsets.only(right: 12),
