@@ -27,7 +27,7 @@ const String kFeed = r'''
 query Feed {
   feed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount
+    repliesCount clipType echoOfId locationName promptId
     user { id name username }
   }
 }
@@ -37,7 +37,7 @@ const String kFollowingFeed = r'''
 query FollowingFeed {
   followingFeed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount
+    repliesCount clipType echoOfId locationName promptId
     user { id name username }
   }
 }
@@ -47,7 +47,7 @@ const String kEmberFeed = r'''
 query EmberFeed {
   emberFeed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount
+    repliesCount clipType echoOfId locationName promptId
     user { id name username }
   }
 }
@@ -57,8 +57,12 @@ const String kClip = r'''
 query Clip($id: ID!) {
   clip(id: $id) {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount parentId
+    repliesCount parentId clipType echoOfId echoIntroPath echoIntroDuration locationName promptId
     user { id name username }
+    echoOf {
+      id audioPath duration waveform topic mood
+      user { id name username }
+    }
     replies {
       id audioPath duration waveform insertedAt isWhisper hasPulsed playsCount repliesCount
       user { id name username }
@@ -230,14 +234,6 @@ query SuggestedUsers {
 ''';
 
 // ── New feature queries ─────────────────────────────────────────────────────
-
-// Clip fields fragment (reused across feeds)
-const String _clipFields = '''
-  id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-  repliesCount clipType echoOfId echoIntroPath echoIntroDuration echoCount
-  locationName threadId threadPosition promptId
-  user { id name username }
-''';
 
 // Mood feed
 const String kMoodFeed = r'''

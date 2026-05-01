@@ -12,7 +12,7 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  static const _moods = ['Funny', 'Deep', 'Inspiring', 'Raw', 'Calm', 'Energetic'];
+  static const _moods = ['calm', 'hype', 'sad', 'angry', 'playful', 'thoughtful', 'vulnerable'];
   static const _categories = ['General', 'Music', 'Comedy', 'Story', 'Thought', 'Question'];
 
   String? _selectedMood;
@@ -58,7 +58,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 Wrap(
                   spacing: 8, runSpacing: 8,
                   children: _moods.map((m) => _FilterChip(
-                    label: m,
+                    label: m[0].toUpperCase() + m.substring(1),
                     selected: _selectedMood == m,
                     onTap: () { setState(() => _selectedMood = _selectedMood == m ? null : m); _load(); },
                   )).toList(),
