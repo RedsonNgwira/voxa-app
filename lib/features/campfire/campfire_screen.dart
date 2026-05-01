@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:livekit_client/livekit_client.dart' as lk;
 import '../../core/theme.dart';
 import '../../core/queries.dart';
 
@@ -240,7 +241,7 @@ class _CampfireCard extends StatelessWidget {
   }
 }
 
-/// Detail screen for a single campfire (join/leave/end)
+/// Detail screen for a single campfire — powered by LiveKit
 class CampfireDetailScreen extends StatefulWidget {
   final String id;
   const CampfireDetailScreen({super.key, required this.id});
@@ -252,7 +253,10 @@ class CampfireDetailScreen extends StatefulWidget {
 class _CampfireDetailScreenState extends State<CampfireDetailScreen> {
   Map<String, dynamic>? _campfire;
   bool _loading = true;
-  bool _joining = false;
+  bool _inRoom = false;
+  bool _muted = false;
+  lk.Room? _room;
+  final List<lk.RemoteParticipant> _lkParticipants = [];
 
   @override
   void initState() {
@@ -260,40 +264,96 @@ class _CampfireDetailScreenState extends State<CampfireDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  @override
+  void dispose() {
+    _room?.removeListener(_onRoomUpdate);
+    _room?.disconnect();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final client = GraphQLProvider.of(context).value;
     final result = await client.query(QueryOptions(
-      document: gql(kActiveCampfires),
+      document: gql(kGetCampfire),
+      variables: {'id': widget.id},
       fetchPolicy: FetchPolicy.networkOnly,
     ));
     if (!mounted) return;
-    final all = (result.data?['activeCampfires'] as List?)
-            ?.cast<Map<String, dynamic>>() ??
-        [];
     setState(() {
-      _campfire = all.where((c) => c['id'] == widget.id).firstOrNull;
+      _campfire = result.data?['campfire'] as Map<String, dynamic>?;
       _loading = false;
     });
   }
 
-  Future<void> _join() async {
-    setState(() => _joining = true);
+  Future<void> _joinRoom() async {
     final client = GraphQLProvider.of(context).value;
-    final result = await client.mutate(MutationOptions(
+
+    await client.mutate(MutationOptions(
       document: gql(kJoinCampfire),
       variables: {'campfireId': widget.id},
     ));
+
+    final tokenResult = await client.query(QueryOptions(
+      document: gql(kCampfireToken),
+      variables: {'campfireId': widget.id},
+      fetchPolicy: FetchPolicy.networkOnly,
+    ));
+
     if (!mounted) return;
-    if (result.hasException) {
+    if (tokenResult.hasException) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.exception.toString())),
+        const SnackBar(content: Text('Failed to get room token')),
       );
+      return;
     }
-    setState(() => _joining = false);
+
+    final tokenData = tokenResult.data?['campfireToken'] as Map<String, dynamic>?;
+    if (tokenData == null) return;
+
+    final room = lk.Room();
+    room.addListener(_onRoomUpdate);
+
+    await room.connect(
+      tokenData['url'] as String,
+      tokenData['token'] as String,
+      roomOptions: const lk.RoomOptions(
+        defaultAudioPublishOptions: lk.AudioPublishOptions(name: 'voice'),
+      ),
+    );
+
+    await room.localParticipant?.setMicrophoneEnabled(true);
+
+    if (!mounted) return;
+    setState(() {
+      _room = room;
+      _inRoom = true;
+      _lkParticipants
+        ..clear()
+        ..addAll(room.remoteParticipants.values);
+    });
     _load();
   }
 
-  Future<void> _leave() async {
+  void _onRoomUpdate() {
+    if (!mounted) return;
+    setState(() {
+      _lkParticipants
+        ..clear()
+        ..addAll(_room!.remoteParticipants.values);
+    });
+  }
+
+  Future<void> _toggleMic() async {
+    final local = _room?.localParticipant;
+    if (local == null) return;
+    final newMuted = !_muted;
+    await local.setMicrophoneEnabled(!newMuted);
+    setState(() => _muted = newMuted);
+  }
+
+  Future<void> _leaveRoom() async {
+    _room?.removeListener(_onRoomUpdate);
+    await _room?.disconnect();
     final client = GraphQLProvider.of(context).value;
     await client.mutate(MutationOptions(
       document: gql(kLeaveCampfire),
@@ -315,33 +375,27 @@ class _CampfireDetailScreenState extends State<CampfireDetailScreen> {
       return Scaffold(
         appBar: AppBar(),
         body: const Center(
-          child: Text('Campfire not found or ended', style: TextStyle(color: AppTheme.textDim)),
+          child: Text('Campfire not found or ended',
+              style: TextStyle(color: AppTheme.textDim)),
         ),
       );
     }
 
     final title = _campfire!['title'] as String? ?? 'Campfire';
+    final dbParticipants =
+        (_campfire!['participants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final count = _campfire!['participantCount'] as int? ?? 0;
     final max = _campfire!['maxParticipants'] as int? ?? 8;
-    final participants =
-        (_campfire!['participants'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Live indicator
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.accent.withAlpha(25),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.accent.withAlpha(60)),
-              ),
+      backgroundColor: AppTheme.card,
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          if (_inRoom)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 8,
@@ -351,84 +405,183 @@ class _CampfireDetailScreenState extends State<CampfireDetailScreen> {
                       color: AppTheme.accent,
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.accent.withAlpha(130),
-                          blurRadius: 6,
-                          spreadRadius: 2,
-                        ),
+                            color: AppTheme.accent.withAlpha(130),
+                            blurRadius: 6,
+                            spreadRadius: 2)
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Text('$count / $max listening',
-                      style: const TextStyle(color: AppTheme.accent, fontSize: 13)),
+                  const SizedBox(width: 6),
+                  const Text('LIVE',
+                      style: TextStyle(
+                          color: AppTheme.accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1)),
                 ],
               ),
             ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withAlpha(25),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.accent.withAlpha(60)),
+              ),
+              child: Text('$count / $max voices',
+                  style: const TextStyle(color: AppTheme.accent, fontSize: 13)),
+            ),
             const SizedBox(height: 32),
-            // Participant grid
             Expanded(
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 20,
+                  childAspectRatio: 0.85,
                 ),
-                itemCount: participants.length,
+                itemCount: dbParticipants.length,
                 itemBuilder: (_, i) {
-                  final p = participants[i];
+                  final p = dbParticipants[i];
+                  final name = p['name'] as String? ?? p['username'] as String? ?? '?';
+                  final isSpeaking = _inRoom &&
+                      _lkParticipants.any((lkp) =>
+                          lkp.identity == 'user:${p['id']}' && lkp.isSpeaking);
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: AppTheme.accent.withAlpha(40),
-                        child: Text(
-                          (p['name'] as String? ?? '?')[0].toUpperCase(),
-                          style: const TextStyle(
-                              color: AppTheme.accent, fontSize: 20, fontWeight: FontWeight.w600),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: isSpeaking
+                              ? [
+                                  BoxShadow(
+                                      color: AppTheme.accent.withAlpha(150),
+                                      blurRadius: 16,
+                                      spreadRadius: 4)
+                                ]
+                              : [],
+                        ),
+                        child: CircleAvatar(
+                          radius: 30,
+                          backgroundColor: isSpeaking
+                              ? AppTheme.accent.withAlpha(80)
+                              : AppTheme.accent.withAlpha(40),
+                          child: Text(
+                            name[0].toUpperCase(),
+                            style: TextStyle(
+                                color: AppTheme.accent,
+                                fontSize: 22,
+                                fontWeight: isSpeaking
+                                    ? FontWeight.w700
+                                    : FontWeight.w500),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        p['name'] as String? ?? p['username'] as String? ?? '',
-                        style: const TextStyle(color: AppTheme.textDim, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      const SizedBox(height: 8),
+                      Text(name,
+                          style: const TextStyle(
+                              color: AppTheme.textDim, fontSize: 11),
+                          overflow: TextOverflow.ellipsis),
                     ],
                   );
                 },
               ),
             ),
-            // Actions
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _leave,
-                    icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                    label: const Text('Leave'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.textDim,
-                      side: const BorderSide(color: AppTheme.border),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
+            if (!_inRoom)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _joinRoom,
+                  icon: const Icon(Icons.local_fire_department_rounded),
+                  label: const Text('Join Campfire'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _joining ? null : _join,
-                    icon: const Icon(Icons.local_fire_department_rounded, size: 18),
-                    label: Text(_joining ? 'Joining...' : 'Join'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _toggleMic,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: _muted
+                              ? AppTheme.surface
+                              : AppTheme.accent.withAlpha(30),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: _muted
+                                  ? AppTheme.border
+                                  : AppTheme.accent.withAlpha(100)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _muted
+                                  ? Icons.mic_off_rounded
+                                  : Icons.mic_rounded,
+                              color:
+                                  _muted ? AppTheme.textDim : AppTheme.accent,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _muted ? 'Unmute' : 'Mute',
+                              style: TextStyle(
+                                  color: _muted
+                                      ? AppTheme.textDim
+                                      : AppTheme.accent,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _leaveRoom,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withAlpha(25),
+                          borderRadius: BorderRadius.circular(16),
+                          border:
+                              Border.all(color: Colors.red.withAlpha(80)),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.exit_to_app_rounded,
+                                color: Colors.red, size: 20),
+                            SizedBox(width: 8),
+                            Text('Leave',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             const SizedBox(height: 24),
           ],
         ),

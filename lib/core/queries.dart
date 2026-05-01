@@ -404,3 +404,21 @@ mutation EndCampfire($campfireId: ID!) {
   endCampfire(campfireId: $campfireId)
 }
 ''';
+
+const String kCampfireToken = r'''
+query CampfireToken($campfireId: ID!) {
+  campfireToken(campfireId: $campfireId) {
+    token url room
+  }
+}
+''';
+
+const String kGetCampfire = r'''
+query GetCampfire($id: ID!) {
+  campfire(id: $id) {
+    id title maxParticipants isActive participantCount circleId insertedAt
+    starter { id name username }
+    participants { id name username }
+  }
+}
+''';
