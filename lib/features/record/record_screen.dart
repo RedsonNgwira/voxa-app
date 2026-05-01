@@ -218,14 +218,14 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
             if (_filePath != null || _isRecording) {
               final discard = await showDialog<bool>(
                 context: context,
-                builder: (_) => AlertDialog(
+                builder: (dialogCtx) => AlertDialog(
                   backgroundColor: AppTheme.surface,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Text('Discard recording?'),
                   content: const Text('Your recording will be lost.'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
+                    TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Keep')),
+                    TextButton(onPressed: () => Navigator.pop(dialogCtx, true), child: const Text('Discard', style: TextStyle(color: Colors.redAccent))),
                   ],
                 ),
               );
@@ -527,50 +527,46 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
                 )
               else
                 // Preview + Post controls
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Redo
-                    _ControlButton(
-                      icon: Icons.refresh_rounded,
-                      label: 'Redo',
-                      onTap: _resetRecording,
-                      outlined: true,
-                    ),
-                    const SizedBox(width: 16),
-                    // Preview play/pause
-                    GestureDetector(
-                      onTap: _togglePreview,
-                      child: Container(
-                        width: 56, height: 56,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppTheme.surface,
-                          border: Border.all(color: AppTheme.accent.withOpacity(0.4)),
-                        ),
-                        child: Icon(
-                          _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                          color: AppTheme.accent, size: 28,
+                SafeArea(
+                  top: false,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _ControlButton(
+                        icon: Icons.refresh_rounded,
+                        label: 'Redo',
+                        onTap: _resetRecording,
+                        outlined: true,
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: _togglePreview,
+                        child: Container(
+                          width: 56, height: 56,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.surface,
+                            border: Border.all(color: AppTheme.accent.withOpacity(0.4)),
+                          ),
+                          child: Icon(
+                            _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                            color: AppTheme.accent, size: 28,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Post
-                    _ControlButton(
-                      icon: _uploading ? null : Icons.send_rounded,
-                      label: _uploading ? 'Posting...' : 'Post',
-                      onTap: _uploading ? null : _upload,
-                      filled: true,
-                      loading: _uploading,
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      _ControlButton(
+                        icon: _uploading ? null : Icons.send_rounded,
+                        label: _uploading ? 'Posting...' : 'Post',
+                        onTap: _uploading ? null : _upload,
+                        filled: true,
+                        loading: _uploading,
+                      ),
+                    ],
+                  ),
                 ),
 
-              const SizedBox(height: 8),
-              SafeArea(
-                top: false,
-                child: const SizedBox(height: 16),
-              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

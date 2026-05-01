@@ -79,8 +79,9 @@ class _CampfireScreenState extends State<CampfireScreen> {
 
     if (!mounted) return;
     if (result.hasException) {
+      final msg = result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed to start campfire';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to start campfire')),
+        SnackBar(content: Text(msg)),
       );
       return;
     }
