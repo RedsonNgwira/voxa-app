@@ -26,7 +26,9 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     super.initState();
     _player = AudioPlayer();
     _stateSub = _player.playerStateStream.listen((_) { if (mounted) setState(() {}); });
-    _posSub = _player.positionStream.listen((_) { if (mounted) setState(() {}); });
+    _posSub = _player.positionStream
+        .where((_) => _player.playing) // only update while playing
+        .listen((_) { if (mounted) setState(() {}); });
   }
 
   @override
@@ -81,17 +83,16 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Waveform / progress bar
-              GestureDetector(
-                onTapDown: (d) async {
-                  final box = context.findRenderObject() as RenderBox;
-                  final localX = d.localPosition.dx;
-                  final width = box.size.width;
-                  final ratio = (localX / width).clamp(0.0, 1.0);
-                  if (total.inMilliseconds > 0) {
-                    await _player.seek(Duration(milliseconds: (total.inMilliseconds * ratio).round()));
-                  }
-                },
-                child: _WaveformBar(waveform: widget.waveform, progress: progress),
+              LayoutBuilder(
+                builder: (context, constraints) => GestureDetector(
+                  onTapDown: (d) async {
+                    final ratio = (d.localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0);
+                    if (total.inMilliseconds > 0) {
+                      await _player.seek(Duration(milliseconds: (total.inMilliseconds * ratio).round()));
+                    }
+                  },
+                  child: _WaveformBar(waveform: widget.waveform, progress: progress),
+                ),
               ),
               const SizedBox(height: 4),
               Row(
