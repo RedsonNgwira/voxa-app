@@ -23,6 +23,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   List<Map<String, dynamic>> _ember = [];
   bool _loading = false;
   bool _showEmber = false;
+  bool _hasNewPosts = false;
   StreamSubscription? _feedSub;
 
   @override
@@ -43,8 +44,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     if (userId == null) return;
     _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
       if (!mounted) return;
-      if (event['event'] == 'new_post' || event['event'] == 'new_clip' ||
-          event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
+      if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
+        setState(() => _hasNewPosts = true); // show banner instead of silent reload
+      } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
         _load();
       }
     });
@@ -156,12 +158,41 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           tabs: tabList,
         ),
       ),
-      body: RefreshIndicator(
+      body: Stack(
+        children: [
+          RefreshIndicator(
               color: AppTheme.accent,
               backgroundColor: AppTheme.surface,
               onRefresh: _load,
               child: TabBarView(controller: tabs, children: views),
             ),
+          if (_hasNewPosts)
+            Positioned(
+              top: 8, left: 0, right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () { setState(() => _hasNewPosts = false); _load(); },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(color: AppTheme.accent.withOpacity(0.4), blurRadius: 12)],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 14),
+                        SizedBox(width: 6),
+                        Text('New voices', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

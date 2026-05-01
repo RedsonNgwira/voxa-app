@@ -1,11 +1,41 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
+import '../../core/me_provider.dart';
 
 class EmbersScreen extends StatelessWidget {
   const EmbersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final me = MeProvider.of(context);
+    final isEmbers = me?['isEmbers'] as bool? ?? false;
+
+    if (isEmbers) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Voxa Embers')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72, height: 72,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFE8622A), Color(0xFFC0431A)]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 36),
+              ),
+              const SizedBox(height: 20),
+              Text('You have Voxa Embers 🔥', style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text('All features unlocked.', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Voxa Embers')),
       body: SingleChildScrollView(

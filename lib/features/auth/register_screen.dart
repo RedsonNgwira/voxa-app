@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
@@ -75,8 +76,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _username,
-                decoration: const InputDecoration(hintText: 'Username', prefixIcon: Icon(Icons.alternate_email, color: AppTheme.textMuted)),
-                inputFormatters: [],
+                decoration: const InputDecoration(hintText: 'Username (letters, numbers, _)', prefixIcon: Icon(Icons.alternate_email, color: AppTheme.textMuted)),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+                  LengthLimitingTextInputFormatter(30),
+                ],
               ),
               const SizedBox(height: 12),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(hintText: 'Email', prefixIcon: Icon(Icons.email_outlined, color: AppTheme.textMuted))),

@@ -146,7 +146,13 @@ class MainShell extends StatelessWidget {
               case 4:
                 final me = MeProvider.of(context);
                 final username = me?['username'] as String?;
-                if (username != null) context.go('/profile/$username');
+                if (username != null) {
+                  context.go('/profile/$username');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Loading profile...'), duration: Duration(seconds: 1)),
+                  );
+                }
             }
           },
           items: const [
