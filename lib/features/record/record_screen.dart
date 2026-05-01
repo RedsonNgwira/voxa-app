@@ -558,7 +558,11 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
                   ],
                 ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 8),
+              SafeArea(
+                top: false,
+                child: const SizedBox(height: 16),
+              ),
             ],
           ),
         ),

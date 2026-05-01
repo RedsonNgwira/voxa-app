@@ -165,6 +165,7 @@ class MainShell extends StatelessWidget {
         location.startsWith('/clip/') ||
         location.startsWith('/campfire/') ||
         location == '/prompts' ||
+        location == '/campfires' ||
         location == '/threads';
 
     final navIndex = switch (location) {
@@ -178,7 +179,6 @@ class MainShell extends StatelessWidget {
 
     return Scaffold(
       body: child,
-      extendBody: true,
       bottomNavigationBar: hideNav ? null : _VoxaBottomNav(
         currentIndex: navIndex,
         onRecordTap: () => context.push('/record'),
