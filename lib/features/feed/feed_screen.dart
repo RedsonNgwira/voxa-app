@@ -134,7 +134,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     ];
     final views = <Widget>[
       _ClipList(clips: _forYou, emptyMessage: 'No voices yet\nBe the first to speak'),
-      _ClipList(clips: _following, emptyMessage: 'Follow people to hear their voices'),
+      _ClipList(clips: _following, emptyMessage: 'Follow people to hear their voices', suggestUsers: true),
       if (_showEmber) _ClipList(clips: _ember, emptyMessage: 'No ember voices yet'),
     ];
 
@@ -210,33 +210,82 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   }
 }
 
-class _ClipList extends StatelessWidget {
+class _ClipList extends StatefulWidget {
   final List<Map<String, dynamic>> clips;
   final String emptyMessage;
-  const _ClipList({required this.clips, this.emptyMessage = 'No voices yet'});
+  final bool suggestUsers;
+  const _ClipList({required this.clips, this.emptyMessage = 'No voices yet', this.suggestUsers = false});
+
+  @override
+  State<_ClipList> createState() => _ClipListState();
+}
+
+class _ClipListState extends State<_ClipList> {
+  List<Map<String, dynamic>> _suggested = [];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.suggestUsers) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadSuggested());
+    }
+  }
+
+  Future<void> _loadSuggested() async {
+    final client = GraphQLProvider.of(context).value;
+    final result = await client.query(QueryOptions(
+      document: gql(kSuggestedUsers),
+      fetchPolicy: FetchPolicy.networkOnly,
+    ));
+    if (!mounted || result.hasException) return;
+    setState(() => _suggested = (result.data!['search']['users'] as List).cast<Map<String, dynamic>>());
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (clips.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
-            const SizedBox(height: 12),
-            Text(
-              emptyMessage,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
+    if (widget.clips.isEmpty) {
+      return ListView(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              children: [
+                Icon(Icons.mic_none_rounded, size: 56, color: AppTheme.textMuted),
+                const SizedBox(height: 12),
+                Text(widget.emptyMessage, style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
+              ],
             ),
+          ),
+          if (_suggested.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text('People to follow', style: Theme.of(context).textTheme.titleMedium),
+            ),
+            ..._suggested.take(10).map((u) => ListTile(
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.accent.withOpacity(0.2),
+                child: Text((u['name'] ?? u['username'] ?? '?')[0].toUpperCase(),
+                  style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700)),
+              ),
+              title: Text(u['name'] ?? u['username'] ?? ''),
+              subtitle: Text('@${u['username'] ?? ''}', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+              trailing: ElevatedButton(
+                onPressed: () => context.push('/profile/${u['username']}'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  minimumSize: Size.zero,
+                ),
+                child: const Text('View', style: TextStyle(fontSize: 12)),
+              ),
+            )),
           ],
-        ),
+        ],
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: clips.length,
-      itemBuilder: (_, i) => ClipCard(clip: clips[i]),
+      itemCount: widget.clips.length,
+      itemBuilder: (_, i) => ClipCard(clip: widget.clips[i]),
     );
   }
 }

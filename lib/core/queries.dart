@@ -219,3 +219,12 @@ query Notifications {
   }
 }
 ''';
+
+// Suggested users to follow (for empty Following tab)
+const String kSuggestedUsers = r'''
+query SuggestedUsers {
+  search(q: "") {
+    users { id name username voiceBioPath isEmbers }
+  }
+}
+''';
