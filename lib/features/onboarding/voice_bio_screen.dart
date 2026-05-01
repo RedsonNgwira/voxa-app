@@ -131,13 +131,15 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
       backgroundColor: AppTheme.black,
       appBar: AppBar(
         backgroundColor: AppTheme.black,
-        leading: IconButton(
+        // Only show back button when editing existing bio (not first-time setup)
+        leading: widget.token == null ? IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
             if (context.canPop()) context.pop();
             else context.go('/');
           },
-        ),
+        ) : null,
+        automaticallyImplyLeading: false,
         title: const Text('Voice Bio'),
       ),
       body: SafeArea(
