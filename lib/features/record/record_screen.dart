@@ -11,7 +11,8 @@ import '../../core/cloudinary_service.dart';
 import '../../core/me_provider.dart';
 
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key});
+  final String? preselectedCircleId;
+  const RecordScreen({super.key, this.preselectedCircleId});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -41,6 +42,7 @@ class _RecordScreenState extends State<RecordScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+    _circleId = widget.preselectedCircleId; // pre-select if coming from circle detail
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadCircles());
   }

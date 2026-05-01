@@ -154,7 +154,7 @@ const String kSearch = r'''
 query Search($q: String!) {
   search(q: $q) {
     users { id name username }
-    clips { id audioPath topic insertedAt user { id name username } }
+    clips { id audioPath duration waveform topic playsCount insertedAt expiresAt hasPulsed repliesCount user { id name username } }
   }
 }
 ''';
@@ -186,7 +186,7 @@ query Circle($id: ID!) {
     id name isPrivate memberCount
     members { id name username }
     posts {
-      id audioPath duration topic playsCount insertedAt
+      id audioPath duration waveform topic playsCount insertedAt expiresAt hasPulsed repliesCount
       user { id name username }
     }
   }

@@ -67,22 +67,63 @@ class _CirclesScreenState extends State<CirclesScreen> {
   }
 
   void _showCreate() {
+    bool _isPrivate = false;
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Padding(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('New Circle', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            TextField(controller: _nameController, decoration: const InputDecoration(hintText: 'Circle name'), autofocus: true),
-            const SizedBox(height: 16),
-            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _createCircle, child: const Text('Create'))),
-          ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('New Circle', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              TextField(controller: _nameController, decoration: const InputDecoration(hintText: 'Circle name'), autofocus: true),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Switch(
+                    value: _isPrivate,
+                    activeColor: AppTheme.accent,
+                    onChanged: (v) => setModalState(() => _isPrivate = v),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Private circle'),
+                  const SizedBox(width: 4),
+                  const Text('(Embers)', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final name = _nameController.text.trim();
+                    if (name.isEmpty) return;
+                    final client = GraphQLProvider.of(context).value;
+                    final result = await client.mutate(MutationOptions(
+                      document: gql(kCreateCircle),
+                      variables: {'name': name, 'isPrivate': _isPrivate},
+                    ));
+                    if (!mounted) return;
+                    if (result.hasException) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed')),
+                      );
+                      return;
+                    }
+                    _nameController.clear();
+                    Navigator.pop(context);
+                    _load();
+                  },
+                  child: const Text('Create'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -108,26 +149,30 @@ class _CirclesScreenState extends State<CirclesScreen> {
                     ElevatedButton(onPressed: _showCreate, child: const Text('Create a circle')),
                   ],
                 ))
-              : ListView.builder(
-                  itemCount: _circles.length,
-                  itemBuilder: (_, i) {
-                    final c = _circles[i];
-                    final isLive = _isCircleLive(c);
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppTheme.accent.withOpacity(0.2),
-                        child: Text((c['name'] as String)[0].toUpperCase(), style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700)),
-                      ),
-                      title: Text(c['name'] as String),
-                      subtitle: Text('${c['memberCount']} members', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-                      trailing: isLive
-                          ? _LiveDot()
-                          : c['isPrivate'] == true
-                              ? const Icon(Icons.lock_outline, size: 16, color: AppTheme.textMuted)
-                              : null,
-                      onTap: () => context.push('/circles/${c['id']}'),
-                    );
-                  },
+              : RefreshIndicator(
+                  color: AppTheme.accent,
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    itemCount: _circles.length,
+                    itemBuilder: (_, i) {
+                      final c = _circles[i];
+                      final isLive = _isCircleLive(c);
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.accent.withOpacity(0.2),
+                          child: Text((c['name'] as String)[0].toUpperCase(), style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w700)),
+                        ),
+                        title: Text(c['name'] as String),
+                        subtitle: Text('${c['memberCount']} members', style: const TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                        trailing: isLive
+                            ? _LiveDot()
+                            : c['isPrivate'] == true
+                                ? const Icon(Icons.lock_outline, size: 16, color: AppTheme.textMuted)
+                                : null,
+                        onTap: () => context.push('/circles/${c['id']}'),
+                      );
+                    },
+                  ),
                 ),
     );
   }
@@ -278,6 +323,11 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => context.push('/record?circleId=${widget.id}'),
+        backgroundColor: AppTheme.accent,
+        child: const Icon(Icons.mic_rounded, color: Colors.white),
       ),
       body: posts.isEmpty
           ? Center(child: Text('No voices in this circle yet', style: Theme.of(context).textTheme.bodyMedium))

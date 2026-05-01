@@ -86,7 +86,7 @@ class _VoxaAppState extends State<VoxaApp> {
           GoRoute(path: '/circles/:id', builder: (_, s) => CircleDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
           GoRoute(path: '/embers', builder: (_, __) => const EmbersScreen()),
-          GoRoute(path: '/record', builder: (_, __) => const RecordScreen()),
+          GoRoute(path: '/record', builder: (_, s) => RecordScreen(preselectedCircleId: s.uri.queryParameters['circleId'])),
           GoRoute(path: '/profile/:username', builder: (_, s) => ProfileScreen(username: s.pathParameters['username']!)),
           GoRoute(path: '/clip/:id', builder: (_, s) => ClipDetailScreen(id: s.pathParameters['id']!)),
         ],
