@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../../core/me_provider.dart';
+import '../../core/phoenix_socket.dart';
 import '../feed/clip_card.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -59,6 +61,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _bioPlayer.pause();
       } catch (_) {}
     }
+  }
+
+  Future<void> _logout(BuildContext ctx) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    phoenixSocket.disconnect();
+    if (ctx.mounted) ctx.go('/login');
   }
 
   Future<void> _toggleFollow() async {
@@ -140,14 +149,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       final me = MeProvider.of(context);
                       final isOwnProfile = me != null && me['username'] == widget.username;
                       if (isOwnProfile) {
-                        return OutlinedButton.icon(
-                          onPressed: () => context.push('/voice-bio'),
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          label: const Text('Edit profile'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textMuted,
-                            side: const BorderSide(color: AppTheme.border),
-                          ),
+                        return Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push('/voice-bio'),
+                                icon: const Icon(Icons.edit_outlined, size: 16),
+                                label: const Text('Edit profile'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.textMuted,
+                                  side: const BorderSide(color: AppTheme.border),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _logout(context),
+                                icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
+                                label: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.redAccent, width: 0.5),
+                                ),
+                              ),
+                            ),
+                          ],
                         );
                       }
                       return ElevatedButton(
