@@ -37,8 +37,19 @@ jobs:
       - name: Build AAB
         run: flutter build appbundle --release
 
-      - name: Build APK
+      - name: Build universal APK
         run: flutter build apk --release
+
+      - name: Build split APKs (per ABI)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename APKs for clarity
+        run: |
+          cd build/app/outputs/flutter-apk
+          cp app-release.apk voxa-universal.apk
+          cp app-arm64-v8a-release.apk voxa-arm64-v8a.apk
+          cp app-armeabi-v7a-release.apk voxa-armeabi-v7a.apk
+          cp app-x86_64-release.apk voxa-x86_64.apk
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -46,17 +57,30 @@ jobs:
           name: voxa-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: voxa-release.apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: voxa-apks
+          path: |
+            build/app/outputs/flutter-apk/voxa-universal.apk
+            build/app/outputs/flutter-apk/voxa-arm64-v8a.apk
+            build/app/outputs/flutter-apk/voxa-armeabi-v7a.apk
+            build/app/outputs/flutter-apk/voxa-x86_64.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Voxa v1.0.${{ github.run_number }}
+          body: |
+            **APK downloads:**
+            - `voxa-arm64-v8a.apk` — most modern phones (~half the size)
+            - `voxa-armeabi-v7a.apk` — older 32-bit phones
+            - `voxa-x86_64.apk` — emulators
+            - `voxa-universal.apk` — works on all devices (largest)
           files: |
-            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/voxa-universal.apk
+            build/app/outputs/flutter-apk/voxa-arm64-v8a.apk
+            build/app/outputs/flutter-apk/voxa-armeabi-v7a.apk
+            build/app/outputs/flutter-apk/voxa-x86_64.apk
             build/app/outputs/bundle/release/app-release.aab
