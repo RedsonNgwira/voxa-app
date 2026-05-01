@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/queries.dart';
 import '../../core/theme.dart';
 import '../feed/clip_card.dart';
@@ -47,6 +48,35 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       appBar: AppBar(title: const Text('Discover')),
       body: Column(
         children: [
+          // Quick access row — Campfires, Threads, Prompts
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                _QuickAccessCard(
+                  icon: Icons.local_fire_department_rounded,
+                  label: 'Campfires',
+                  color: AppTheme.accent,
+                  onTap: () => context.push('/campfires'),
+                ),
+                const SizedBox(width: 10),
+                _QuickAccessCard(
+                  icon: Icons.segment_rounded,
+                  label: 'Threads',
+                  color: AppTheme.gold,
+                  onTap: () => context.push('/threads'),
+                ),
+                const SizedBox(width: 10),
+                _QuickAccessCard(
+                  icon: Icons.lightbulb_outline_rounded,
+                  label: 'Prompts',
+                  color: const Color(0xFF4ADE80),
+                  onTap: () => context.push('/prompts'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
           // Mood grid (spec 7.9)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -118,6 +148,40 @@ class _FilterChip extends StatelessWidget {
           border: Border.all(color: selected ? AppTheme.accent : AppTheme.border),
         ),
         child: Text(label, style: TextStyle(color: selected ? Colors.white : AppTheme.textMuted, fontSize: 13, fontWeight: FontWeight.w500)),
+      ),
+    );
+  }
+}
+
+class _QuickAccessCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickAccessCard({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
       ),
     );
   }

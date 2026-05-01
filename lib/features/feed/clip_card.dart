@@ -71,6 +71,19 @@ class _ClipCardState extends State<ClipCard> {
     } catch (_) { return null; }
   }
 
+  String _moodEmoji(String mood) {
+    return switch (mood.toLowerCase()) {
+      'calm' => '😌 calm',
+      'hype' => '🔥 hype',
+      'sad' => '💙 sad',
+      'angry' => '😤 angry',
+      'playful' => '😄 playful',
+      'thoughtful' => '🤔 thoughtful',
+      'vulnerable' => '🫀 vulnerable',
+      _ => mood,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_deleted) return const SizedBox.shrink();
@@ -183,6 +196,35 @@ class _ClipCardState extends State<ClipCard> {
                         ),
                         const SizedBox(width: 6),
                       ],
+                      if (clip['mood'] != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: AppTheme.accent.withOpacity(0.15)),
+                          ),
+                          child: Text(_moodEmoji(clip['mood'] as String),
+                            style: const TextStyle(fontSize: 10)),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      if (clip['clipType'] == 'ambient' && clip['locationName'] != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.teal.withOpacity(0.2)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.location_on_outlined, size: 10, color: Colors.teal),
+                            const SizedBox(width: 3),
+                            Text(clip['locationName'], style: const TextStyle(color: Colors.teal, fontSize: 10)),
+                          ]),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       if (expiryLabel != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -203,6 +245,36 @@ class _ClipCardState extends State<ClipCard> {
                     ],
                   ),
                   const SizedBox(height: 12),
+
+                  // Echo banner — show original clip info
+                  if (clip['clipType'] == 'echo' && clip['echoOf'] != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.repeat_rounded, size: 14, color: AppTheme.textMuted),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Echoed from @${(clip['echoOf'] as Map)['user']?['username'] ?? ''}',
+                              style: const TextStyle(color: AppTheme.textDim, fontSize: 11),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.push('/clip/${(clip['echoOf'] as Map)['id']}'),
+                            child: const Text('View', style: TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // Audio player
                   AudioPlayerWidget(
