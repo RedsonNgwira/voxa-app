@@ -130,6 +130,12 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
 
   Future<void> _upload() async {
     if (_filePath == null) return;
+    // Stop player first — Android locks the file while playing
+    if (_isPlaying) {
+      await _player.stop();
+      setState(() => _isPlaying = false);
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
     setState(() { _uploading = true; _error = null; });
     try {
       // Upload directly to Cloudinary
@@ -168,7 +174,7 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
     } on CloudinaryUploadException catch (e) {
       if (mounted) setState(() { _error = e.message; _uploading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = 'Upload failed. Please try again.'; _uploading = false; });
+      if (mounted) setState(() { _error = 'Upload failed: $e'; _uploading = false; });
     }
   }
 
