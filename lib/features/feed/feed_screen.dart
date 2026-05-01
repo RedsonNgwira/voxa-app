@@ -107,14 +107,14 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     setState(() {
       final r0 = results[0] as QueryResult;
       final r1 = results[1] as QueryResult;
-      if (!r0.hasException) {
-        _forYou = (r0.data!['feed'] as List).cast<Map<String, dynamic>>();
+      if (!r0.hasException && r0.data != null) {
+        _forYou = (r0.data!['feed'] as List? ?? []).cast<Map<String, dynamic>>();
         FeedCache.save(_forYou);
       }
-      if (!r1.hasException) _following = (r1.data!['followingFeed'] as List).cast<Map<String, dynamic>>();
+      if (!r1.hasException && r1.data != null) _following = (r1.data!['followingFeed'] as List? ?? []).cast<Map<String, dynamic>>();
       if (_showEmber && results.length > 2) {
         final r2 = results[2] as QueryResult;
-        if (!r2.hasException) _ember = (r2.data!['emberFeed'] as List).cast<Map<String, dynamic>>();
+        if (!r2.hasException && r2.data != null) _ember = (r2.data!['emberFeed'] as List? ?? []).cast<Map<String, dynamic>>();
       }
       _loading = false;
       _hasNewPosts = false;
