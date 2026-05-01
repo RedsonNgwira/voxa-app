@@ -38,6 +38,8 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
   String? _circleId;
   String? _error;
   String? _mood;
+  String _clipType = 'voice'; // 'voice' or 'ambient'
+  String? _locationName;
   List<Map<String, dynamic>> _circles = [];
 
   static const _topics = ['General', 'Music', 'Comedy', 'Story', 'Thought', 'Question', 'Rant', 'Other'];
@@ -137,9 +139,8 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
       final waveformData = _normalizeWaveform(_waveform, 48);
 
       final client = GraphQLProvider.of(context).value;
-      final useExtended = widget.promptId != null || _mood != null;
       final result = await client.mutate(MutationOptions(
-        document: gql(useExtended ? kCreateClipExtended : kCreateClip),
+        document: gql(kCreateClipExtended),
         variables: {
           'audioUrl': cloudinary['url'],
           'cloudinaryPublicId': cloudinary['publicId'],
@@ -148,10 +149,9 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
           'category': _topic ?? 'General',
           'mood': _mood,
           'circleId': _circleId,
-          if (useExtended) ...{
-            'clipType': 'voice',
-            'promptId': widget.promptId,
-          },
+          'clipType': _clipType,
+          'promptId': widget.promptId,
+          'locationName': _clipType == 'ambient' ? _locationName : null,
         },
       ));
       if (!mounted) return;
@@ -324,6 +324,52 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
               ),
 
               const Spacer(flex: 2),
+
+              // Clip type toggle (voice vs ambient) — shown after recording
+              if (hasRecording && widget.promptId == null) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _ClipTypeChip(
+                      icon: Icons.mic_rounded,
+                      label: 'Voice',
+                      active: _clipType == 'voice',
+                      onTap: () => setState(() => _clipType = 'voice'),
+                    ),
+                    const SizedBox(width: 12),
+                    _ClipTypeChip(
+                      icon: Icons.nature_people_rounded,
+                      label: 'Ambient',
+                      active: _clipType == 'ambient',
+                      onTap: () => setState(() => _clipType = 'ambient'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Location name (ambient only)
+              if (hasRecording && _clipType == 'ambient') ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: TextField(
+                    style: const TextStyle(fontSize: 14),
+                    decoration: const InputDecoration(
+                      hintText: 'Where is this sound? (e.g. "rainy cafe in Tokyo")',
+                      hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      prefixIcon: Icon(Icons.place_rounded, color: AppTheme.textDim, size: 18),
+                    ),
+                    onChanged: (v) => _locationName = v.isEmpty ? null : v,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Topic selector (after recording)
               if (hasRecording) ...[
@@ -590,4 +636,49 @@ class _LiveWaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LiveWaveformPainter old) => true;
+}
+
+class _ClipTypeChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _ClipTypeChip({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? AppTheme.accent.withOpacity(0.15) : AppTheme.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: active ? AppTheme.accent : AppTheme.border,
+            width: active ? 1.5 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: active ? AppTheme.accent : AppTheme.textMuted),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(
+              fontSize: 13,
+              fontWeight: active ? FontWeight.w600 : FontWeight.normal,
+              color: active ? AppTheme.accent : AppTheme.textMuted,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
 }

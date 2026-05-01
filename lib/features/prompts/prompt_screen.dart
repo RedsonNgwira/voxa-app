@@ -84,7 +84,10 @@ class _PromptScreenState extends State<PromptScreen> {
               icon: const Icon(Icons.mic_rounded),
               tooltip: 'Respond to prompt',
               onPressed: () => context.push(
-                '/record?promptId=${_todayPrompt!['id']}',
+                Uri(path: '/record', queryParameters: {
+                  'promptId': _todayPrompt!['id'].toString(),
+                  'promptText': _todayPrompt!['text'] as String,
+                }).toString(),
               ),
             ),
         ],
@@ -104,7 +107,10 @@ class _PromptScreenState extends State<PromptScreen> {
                         prompt: _todayPrompt!,
                         isToday: true,
                         onRespond: () => context.push(
-                          '/record?promptId=${_todayPrompt!['id']}',
+                          Uri(path: '/record', queryParameters: {
+                            'promptId': _todayPrompt!['id'].toString(),
+                            'promptText': _todayPrompt!['text'] as String,
+                          }).toString(),
                         ),
                       ),
                     ),
