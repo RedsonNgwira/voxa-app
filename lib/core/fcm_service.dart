@@ -48,7 +48,7 @@ Future<void> _showLocalNotification(RemoteMessage message) async {
         presentSound: true,
       ),
     ),
-    payload: '${message.data['type'] ?? ''}|${message.data['post_id'] ?? ''}',
+    payload: '${message.data['type'] ?? ''}|${message.data['campfire_id'] ?? message.data['post_id'] ?? ''}',
   );
 }
 
@@ -100,8 +100,10 @@ class FCMService {
 
     // App opened from notification (background → foreground)
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      final postId = message.data['post_id'] as String?;
       final type = message.data['type'] as String?;
+      final postId = type == 'CAMPFIRE'
+          ? message.data['campfire_id'] as String?
+          : message.data['post_id'] as String?;
       onNotificationTap?.call(postId, type);
     });
 

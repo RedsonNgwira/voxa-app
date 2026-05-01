@@ -59,9 +59,11 @@ class _VoxaAppState extends State<VoxaApp> {
     super.initState();
     widget.auth.addListener(_onAuthChange);
     _router = _buildRouter();
-    // Handle notification taps — navigate to clip
+    // Handle notification taps — navigate based on type
     onNotificationTap = (postId, type) {
-      if (postId != null) {
+      if (type == 'CAMPFIRE' && postId != null) {
+        _router.push('/campfire/$postId');
+      } else if (postId != null) {
         _router.push('/clip/$postId');
       }
     };
