@@ -8,6 +8,12 @@ mutation Login($email: String!, $password: String!) {
 }
 ''';
 
+const String kCheckUsername = r'''
+query CheckUsername($username: String!) {
+  checkUsername(username: $username)
+}
+''';
+
 const String kRegister = r'''
 mutation Register($email: String!, $password: String!, $name: String!, $username: String!) {
   register(email: $email, password: $password, name: $name, username: $username) {
