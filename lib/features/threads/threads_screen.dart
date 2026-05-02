@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'dart:async';
+import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 import '../../core/queries.dart';
 
@@ -189,79 +190,77 @@ class _ThreadCard extends StatelessWidget {
     final user = thread['user'] as Map<String, dynamic>?;
     final clips = (thread['clips'] as List?)?.cast<Map<String, dynamic>>() ?? [];
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(title,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFFF0E6D3))),
-              ),
-              if (isComplete)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.online.withAlpha(25),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.online.withAlpha(60)),
-                  ),
-                  child: const Text('Complete',
-                      style: TextStyle(color: AppTheme.online, fontSize: 10, fontWeight: FontWeight.w600)),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accent.withAlpha(25),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.accent.withAlpha(60)),
-                  ),
-                  child: const Text('In progress',
-                      style: TextStyle(color: AppTheme.accent, fontSize: 10, fontWeight: FontWeight.w600)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (user != null)
-            Text('by ${user['name'] ?? user['username']}',
-                style: const TextStyle(color: AppTheme.textDim, fontSize: 12)),
-          const SizedBox(height: 8),
-          // Clip count bar
-          Row(
-            children: [
-              Icon(Icons.segment_rounded, size: 14, color: AppTheme.textDim),
-              const SizedBox(width: 6),
-              Text('$clipCount ${clipCount == 1 ? 'part' : 'parts'}',
-                  style: const TextStyle(color: AppTheme.textDim, fontSize: 12)),
-            ],
-          ),
-          // Show mini waveform dots for each clip
-          if (clips.isNotEmpty) ...[
-            const SizedBox(height: 12),
+    return GestureDetector(
+      onTap: () => context.push('/thread/${thread['id']}'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
-              children: clips.take(10).map((c) {
-                return Container(
-                  width: 6,
-                  height: 6,
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: const TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFFF0E6D3))),
+                ),
+                if (isComplete)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.online.withAlpha(25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.online.withAlpha(60)),
+                    ),
+                    child: const Text('Complete',
+                        style: TextStyle(color: AppTheme.online, fontSize: 10, fontWeight: FontWeight.w600)),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accent.withAlpha(25),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.accent.withAlpha(60)),
+                    ),
+                    child: const Text('In progress',
+                        style: TextStyle(color: AppTheme.accent, fontSize: 10, fontWeight: FontWeight.w600)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (user != null)
+              Text('by ${user['name'] ?? user['username']}',
+                  style: const TextStyle(color: AppTheme.textDim, fontSize: 12)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.segment_rounded, size: 14, color: AppTheme.textDim),
+                const SizedBox(width: 6),
+                Text('$clipCount ${clipCount == 1 ? 'part' : 'parts'}',
+                    style: const TextStyle(color: AppTheme.textDim, fontSize: 12)),
+              ],
+            ),
+            if (clips.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: clips.take(10).map((_) => Container(
+                  width: 6, height: 6,
                   margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppTheme.accent.withAlpha(150),
                   ),
-                );
-              }).toList(),
-            ),
+                )).toList(),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

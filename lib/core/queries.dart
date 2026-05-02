@@ -335,6 +335,16 @@ query ThreadFeed($limit: Int) {
 }
 ''';
 
+const String kVoiceThread = r'''
+query VoiceThread($id: ID!) {
+  voiceThread(id: $id) {
+    id title clipCount isComplete insertedAt
+    user { id name username }
+    clips { id audioPath duration waveform threadPosition mood user { id name username } }
+  }
+}
+''';
+
 const String kCreateVoiceThread = r'''
 mutation CreateVoiceThread($title: String) {
   createVoiceThread(title: $title) {

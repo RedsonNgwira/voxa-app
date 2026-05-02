@@ -28,6 +28,7 @@ import 'features/profile/profile_screen.dart';
 import 'features/prompts/prompt_screen.dart';
 import 'features/campfire/campfire_screen.dart';
 import 'features/threads/threads_screen.dart';
+import 'features/threads/thread_detail_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -110,6 +111,7 @@ class _VoxaAppState extends State<VoxaApp> {
           GoRoute(path: '/campfires', builder: (_, __) => const CampfireScreen()),
           GoRoute(path: '/campfire/:id', builder: (_, s) => CampfireDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/threads', builder: (_, __) => const ThreadsScreen()),
+          GoRoute(path: '/thread/:id', builder: (_, s) => ThreadDetailScreen(id: s.pathParameters['id']!)),
         ],
       ),
     ],
@@ -166,7 +168,8 @@ class MainShell extends StatelessWidget {
         location.startsWith('/campfire/') ||
         location == '/prompts' ||
         location == '/campfires' ||
-        location == '/threads';
+        location == '/threads' ||
+        location.startsWith('/thread/');
 
     final navIndex = switch (location) {
       '/' => 0,
