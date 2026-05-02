@@ -22,7 +22,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
 
   Future<void> _login() async {
-    setState(() { _loading = true; _error = null; });
+    if (_email.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = 'Please enter email and password');
+      return;
+    }
     final client = GraphQLProvider.of(context).value;
     final result = await client.mutate(MutationOptions(
       document: gql(kLogin),

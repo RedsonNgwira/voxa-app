@@ -12,7 +12,10 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 1500), widget.onDone);
+    // Minimum 1200ms splash, then dismiss
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) widget.onDone();
+    });
   }
 
   @override

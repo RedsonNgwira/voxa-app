@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +21,18 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   String? _selectedCategory;
   List<Map<String, dynamic>> _clips = [];
   bool _loading = false;
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _loadDebounced() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), _load);
+  }
 
   @override
   void initState() {
@@ -92,7 +105,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   children: _moods.map((m) => _FilterChip(
                     label: m[0].toUpperCase() + m.substring(1),
                     selected: _selectedMood == m,
-                    onTap: () { setState(() => _selectedMood = _selectedMood == m ? null : m); _load(); },
+                    onTap: () { setState(() => _selectedMood = _selectedMood == m ? null : m); _loadDebounced(); },
                   )).toList(),
                 ),
                 const SizedBox(height: 12),
@@ -103,7 +116,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   children: _categories.map((c) => _FilterChip(
                     label: c,
                     selected: _selectedCategory == c,
-                    onTap: () { setState(() => _selectedCategory = _selectedCategory == c ? null : c); _load(); },
+                    onTap: () { setState(() => _selectedCategory = _selectedCategory == c ? null : c); _loadDebounced(); },
                   )).toList(),
                 ),
                 const Divider(height: 24),

@@ -23,6 +23,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _error;
 
   Future<void> _register() async {
+    if (_name.text.trim().isEmpty || _username.text.trim().isEmpty ||
+        _email.text.trim().isEmpty) {
+      setState(() => _error = 'All fields are required');
+      return;
+    }
     if (_password.text.length < 6) {
       setState(() => _error = 'Password must be at least 6 characters');
       return;
