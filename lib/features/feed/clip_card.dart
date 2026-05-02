@@ -281,6 +281,10 @@ class _ClipCardState extends State<ClipCard> {
                     url: clip['audioPath'] ?? '',
                     waveform: waveform,
                     duration: clip['duration'] as int?,
+                    introUrl: clip['clipType'] == 'echo' ? clip['echoIntroPath'] as String? : null,
+                    introWaveform: clip['clipType'] == 'echo' && clip['echoIntroWaveform'] != null
+                        ? (clip['echoIntroWaveform'] as String).split(',').map((v) => double.tryParse(v) ?? 0.0).toList()
+                        : null,
                   ),
                   const SizedBox(height: 10),
 

@@ -8,8 +8,10 @@ class AudioPlayerWidget extends StatefulWidget {
   final String url;
   final List<double>? waveform;
   final int? duration;
+  final String? introUrl;
+  final List<double>? introWaveform;
 
-  const AudioPlayerWidget({super.key, required this.url, this.waveform, this.duration});
+  const AudioPlayerWidget({super.key, required this.url, this.waveform, this.duration, this.introUrl, this.introWaveform});
 
   @override
   State<AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
@@ -18,6 +20,7 @@ class AudioPlayerWidget extends StatefulWidget {
 class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   late final AudioPlayer _player;
   bool _loading = false;
+  bool _playingIntro = false;
   StreamSubscription? _stateSub;
   StreamSubscription? _posSub;
 
@@ -25,9 +28,15 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   void initState() {
     super.initState();
     _player = AudioPlayer();
-    _stateSub = _player.playerStateStream.listen((_) { if (mounted) setState(() {}); });
+    _stateSub = _player.playerStateStream.listen((state) {
+      if (mounted) setState(() {});
+      // When intro finishes, auto-advance to main clip
+      if (_playingIntro && state.processingState == ProcessingState.completed) {
+        _playMain();
+      }
+    });
     _posSub = _player.positionStream
-        .where((_) => _player.playing) // only update while playing
+        .where((_) => _player.playing)
         .listen((_) { if (mounted) setState(() {}); });
   }
 
@@ -39,6 +48,13 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     super.dispose();
   }
 
+  Future<void> _playMain() async {
+    setState(() { _playingIntro = false; _loading = true; });
+    await _player.setUrl(widget.url);
+    setState(() => _loading = false);
+    await _player.play();
+  }
+
   Future<void> _toggle() async {
     if (_player.playing) {
       await _player.pause();
@@ -46,6 +62,15 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     }
     if (_player.processingState == ProcessingState.idle) {
       setState(() => _loading = true);
+      // Play intro first if available and not yet played
+      if (widget.introUrl != null && !_playingIntro &&
+          _player.processingState == ProcessingState.idle) {
+        setState(() { _playingIntro = true; _loading = true; });
+        await _player.setUrl(widget.introUrl!);
+        setState(() => _loading = false);
+        await _player.play();
+        return;
+      }
       await _player.setUrl(widget.url);
       setState(() => _loading = false);
     }
@@ -64,8 +89,29 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     final total = _player.duration ?? Duration(seconds: widget.duration ?? 0);
     final progress = total.inMilliseconds > 0 ? position.inMilliseconds / total.inMilliseconds : 0.0;
     final isPlaying = _player.playing;
+    final activeWaveform = _playingIntro ? widget.introWaveform : widget.waveform;
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_playingIntro)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withAlpha(30),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.accent.withAlpha(80)),
+                  ),
+                  child: const Text('YOUR INTRO', style: TextStyle(color: AppTheme.accent, fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                ),
+              ],
+            ),
+          ),
+        Row(
       children: [
         GestureDetector(
           onTap: _toggle,
@@ -82,7 +128,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Waveform / progress bar
               LayoutBuilder(
                 builder: (context, constraints) => GestureDetector(
                   onTapDown: (d) async {
@@ -91,7 +136,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                       await _player.seek(Duration(milliseconds: (total.inMilliseconds * ratio).round()));
                     }
                   },
-                  child: _WaveformBar(waveform: widget.waveform, progress: progress),
+                  child: _WaveformBar(waveform: activeWaveform, progress: progress),
                 ),
               ),
               const SizedBox(height: 4),
@@ -104,6 +149,8 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
               ),
             ],
           ),
+        ),
+      ],
         ),
       ],
     );

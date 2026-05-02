@@ -27,8 +27,9 @@ const String kFeed = r'''
 query Feed {
   feed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount clipType echoOfId locationName promptId
+    repliesCount clipType echoOfId echoIntroPath echoIntroWaveform echoIntroDuration locationName promptId
     user { id name username }
+    echoOf { id audioPath waveform duration user { id name username } }
   }
 }
 ''';
@@ -37,8 +38,9 @@ const String kFollowingFeed = r'''
 query FollowingFeed {
   followingFeed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount clipType echoOfId locationName promptId
+    repliesCount clipType echoOfId echoIntroPath echoIntroWaveform echoIntroDuration locationName promptId
     user { id name username }
+    echoOf { id audioPath waveform duration user { id name username } }
   }
 }
 ''';
@@ -47,8 +49,9 @@ const String kEmberFeed = r'''
 query EmberFeed {
   emberFeed {
     id audioPath duration waveform topic mood playsCount insertedAt expiresAt hasPulsed
-    repliesCount clipType echoOfId locationName promptId
+    repliesCount clipType echoOfId echoIntroPath echoIntroWaveform echoIntroDuration locationName promptId
     user { id name username }
+    echoOf { id audioPath waveform duration user { id name username } }
   }
 }
 ''';
