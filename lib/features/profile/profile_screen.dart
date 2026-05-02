@@ -114,12 +114,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirm != true || !ctx.mounted) return;
 
-    // Use AuthService for proper cleanup (socket disconnect, token removal, state update)
     final auth = AuthProvider.of(ctx);
     if (auth != null) {
       await auth.logout();
     }
-    if (ctx.mounted) ctx.go('/login');
+    // Use root context for navigation — ctx may be unmounted after logout clears the shell
+    if (mounted) context.go('/login');
   }
 
   Future<void> _toggleFollow() async {
