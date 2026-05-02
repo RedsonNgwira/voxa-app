@@ -76,7 +76,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
       final client = widget.token != null
           ? GraphQLService.clientNotifier(widget.token).value
           : GraphQLProvider.of(context).value;
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, client);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
       final waveformData = _normalizeWaveform(_waveform, 48);
       final result = await client.mutate(MutationOptions(
         document: gql(kSaveVoiceBio),

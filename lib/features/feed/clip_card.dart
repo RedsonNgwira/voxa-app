@@ -616,7 +616,7 @@ class _EchoSheetState extends State<_EchoSheet> {
     });
     try {
       final client = GraphQLProvider.of(context).value;
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, client);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
       final step = _waveform.isEmpty ? 1.0 : _waveform.length / 48;
       final waveformData = _waveform.isEmpty
           ? <double>[]

@@ -140,7 +140,7 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
     setState(() { _uploading = true; _error = null; });
     try {
       // Upload directly to Cloudinary
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, GraphQLProvider.of(context).value);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
 
       // Normalize waveform to 48 values
       final waveformData = _normalizeWaveform(_waveform, 48);

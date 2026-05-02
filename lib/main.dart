@@ -496,7 +496,7 @@ class _ReplySheetState extends State<_ReplySheet> {
     setState(() { _uploading = true; _error = null; });
     try {
       final client = GraphQLProvider.of(context).value;
-      final cloudinary = await CloudinaryService.uploadAudio(_filePath!, client);
+      final cloudinary = await CloudinaryService.uploadAudio(_filePath!);
       final step = _waveform.length / 48;
       final waveformData = List.generate(48, (i) => _waveform[(i * step).floor().clamp(0, _waveform.length - 1)]);
       final result = await client.mutate(MutationOptions(
