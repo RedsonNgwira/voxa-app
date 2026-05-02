@@ -29,6 +29,7 @@ import 'features/prompts/prompt_screen.dart';
 import 'features/campfire/campfire_screen.dart';
 import 'features/threads/threads_screen.dart';
 import 'features/threads/thread_detail_screen.dart';
+import 'features/whispers/whisper_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +65,8 @@ class _VoxaAppState extends State<VoxaApp> {
     onNotificationTap = (postId, type) {
       if (type == 'CAMPFIRE' && postId != null) {
         _router.push('/campfire/$postId');
+      } else if (type == 'WHISPER' && postId != null) {
+        _router.push('/whispers/$postId');
       } else if (postId != null) {
         _router.push('/clip/$postId');
       }
@@ -113,6 +116,7 @@ class _VoxaAppState extends State<VoxaApp> {
           GoRoute(path: '/campfire/:id', builder: (_, s) => CampfireDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/threads', builder: (_, __) => const ThreadsScreen()),
           GoRoute(path: '/thread/:id', builder: (_, s) => ThreadDetailScreen(id: s.pathParameters['id']!)),
+          GoRoute(path: '/whispers/:clipId', builder: (_, s) => WhisperScreen(clipId: s.pathParameters['clipId']!)),
         ],
       ),
     ],

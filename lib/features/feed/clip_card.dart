@@ -294,20 +294,39 @@ class _ClipCardState extends State<ClipCard> {
                         onTap: widget.onReply ?? () => context.push('/clip/${clip['id']}'),
                       ),
                       const SizedBox(width: 20),
-                      // Whisper
-                      GestureDetector(
-                        onTap: () => context.push('/clip/${clip['id']}'),
-                        child: const Tooltip(
-                          message: 'Private voice reply',
-                          child: Row(
-                            children: [
-                              Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.textMuted),
-                              SizedBox(width: 4),
-                              Text('Whisper', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
-                            ],
+                      // Whisper / View Whispers
+                      Builder(builder: (ctx) {
+                        final me = MeProvider.of(ctx);
+                        final isOwner = me != null && me['id'] == clip['user']?['id'];
+                        if (isOwner) {
+                          return GestureDetector(
+                            onTap: () => context.push('/whispers/${clip['id']}'),
+                            child: const Tooltip(
+                              message: 'View whispers',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.lock_rounded, size: 16, color: AppTheme.accent),
+                                  SizedBox(width: 4),
+                                  Text('Whispers', style: TextStyle(color: AppTheme.accent, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                        return GestureDetector(
+                          onTap: () => context.push('/clip/${clip['id']}'),
+                          child: const Tooltip(
+                            message: 'Private voice reply',
+                            child: Row(
+                              children: [
+                                Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.textMuted),
+                                SizedBox(width: 4),
+                                Text('Whisper', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                              ],
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                       const SizedBox(width: 20),
                       // Echo (repost with voice intro)
                       GestureDetector(

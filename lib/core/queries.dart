@@ -432,3 +432,12 @@ query GetCampfire($id: ID!) {
   }
 }
 ''';
+
+const String kWhispers = r'''
+query Whispers($clipId: ID!) {
+  whispers(clipId: $clipId) {
+    id audioPath duration waveform insertedAt
+    user { id name username }
+  }
+}
+''';
