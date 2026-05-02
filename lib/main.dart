@@ -31,6 +31,8 @@ import 'features/threads/threads_screen.dart';
 import 'features/threads/thread_detail_screen.dart';
 import 'features/whispers/whisper_screen.dart';
 import 'features/about/about_screen.dart';
+import 'core/version_service.dart';
+import 'features/update/update_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,13 +58,13 @@ class VoxaApp extends StatefulWidget {
 class _VoxaAppState extends State<VoxaApp> {
   bool _showSplash = true;
   late GoRouter _router;
+  VersionCheckResult? _versionCheck;
 
   @override
   void initState() {
     super.initState();
     widget.auth.addListener(_onAuthChange);
     _router = _buildRouter();
-    // Handle notification taps — navigate based on type
     onNotificationTap = (postId, type) {
       if (type == 'CAMPFIRE' && postId != null) {
         _router.push('/campfire/$postId');
@@ -72,6 +74,10 @@ class _VoxaAppState extends State<VoxaApp> {
         _router.push('/clip/$postId');
       }
     };
+    // Check version in background — never blocks launch
+    VersionService.check().then((result) {
+      if (mounted) setState(() => _versionCheck = result);
+    });
   }
 
   void _onAuthChange() => setState(() { _router = _buildRouter(); });
@@ -141,6 +147,13 @@ class _VoxaAppState extends State<VoxaApp> {
         debugShowCheckedModeBanner: false,
         builder: (context, child) {
           if (_showSplash) return SplashScreen(onDone: _onSplashDone);
+          // Force update gate — shown after splash, before any screen
+          if (_versionCheck?.forceUpdate == true) {
+            return UpdateScreen(
+              message: _versionCheck!.message,
+              storeUrl: _versionCheck!.storeUrl,
+            );
+          }
           return child ?? const SizedBox();
         },
       ),
