@@ -64,7 +64,7 @@ class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
   }
 
   Future<void> _addClip() async {
-    context.push('/record', extra: {'threadId': widget.id});
+    context.push('/record?threadId=${widget.id}');
   }
 
   Future<void> _completeThread() async {

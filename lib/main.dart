@@ -104,6 +104,7 @@ class _VoxaAppState extends State<VoxaApp> {
             promptId: s.uri.queryParameters['promptId'],
             promptText: s.uri.queryParameters['promptText'],
             initialMood: s.uri.queryParameters['mood'],
+            threadId: s.uri.queryParameters['threadId'],
           )),
           GoRoute(path: '/profile/:username', builder: (_, s) => ProfileScreen(username: s.pathParameters['username']!)),
           GoRoute(path: '/clip/:id', builder: (_, s) => ClipDetailScreen(id: s.pathParameters['id']!)),

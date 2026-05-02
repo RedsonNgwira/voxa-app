@@ -17,7 +17,8 @@ class RecordScreen extends StatefulWidget {
   final String? promptId;
   final String? promptText;
   final String? initialMood;
-  const RecordScreen({super.key, this.preselectedCircleId, this.promptId, this.promptText, this.initialMood});
+  final String? threadId;
+  const RecordScreen({super.key, this.preselectedCircleId, this.promptId, this.promptText, this.initialMood, this.threadId});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -146,21 +147,39 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
       final waveformData = _normalizeWaveform(_waveform, 48);
 
       final client = GraphQLProvider.of(context).value;
-      final result = await client.mutate(MutationOptions(
-        document: gql(kCreateClipExtended),
-        variables: {
-          'audioUrl': cloudinary['url'],
-          'cloudinaryPublicId': cloudinary['publicId'],
-          'waveformData': waveformData,
-          'durationSeconds': _elapsed.inSeconds > 0 ? _elapsed.inSeconds : 1,
-          'category': _topic ?? 'General',
-          'mood': _mood,
-          'circleId': _circleId,
-          'clipType': _clipType,
-          'promptId': widget.promptId,
-          'locationName': _clipType == 'ambient' ? _locationName : null,
-        },
-      ));
+      final MutationOptions mutationOptions;
+
+      if (widget.threadId != null) {
+        mutationOptions = MutationOptions(
+          document: gql(kAddToThread),
+          variables: {
+            'threadId': widget.threadId,
+            'audioUrl': cloudinary['url'],
+            'cloudinaryPublicId': cloudinary['publicId'],
+            'waveformData': waveformData,
+            'durationSeconds': _elapsed.inSeconds > 0 ? _elapsed.inSeconds : 1,
+            'mood': _mood,
+          },
+        );
+      } else {
+        mutationOptions = MutationOptions(
+          document: gql(kCreateClipExtended),
+          variables: {
+            'audioUrl': cloudinary['url'],
+            'cloudinaryPublicId': cloudinary['publicId'],
+            'waveformData': waveformData,
+            'durationSeconds': _elapsed.inSeconds > 0 ? _elapsed.inSeconds : 1,
+            'category': _topic ?? 'General',
+            'mood': _mood,
+            'circleId': _circleId,
+            'clipType': _clipType,
+            'promptId': widget.promptId,
+            'locationName': _clipType == 'ambient' ? _locationName : null,
+          },
+        );
+      }
+
+      final result = await client.mutate(mutationOptions);
       if (!mounted) return;
       if (result.hasException) {
         final msg = result.exception?.graphqlErrors.firstOrNull?.message ?? 'Post failed';
@@ -172,7 +191,13 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
       try { File(_filePath!).deleteSync(); } catch (_) {}
       _successController.forward();
       await Future.delayed(const Duration(milliseconds: 400));
-      if (mounted) context.go('/');
+      if (mounted) {
+        if (widget.threadId != null) {
+          context.go('/thread/${widget.threadId}');
+        } else {
+          context.go('/');
+        }
+      }
     } on CloudinaryUploadException catch (e) {
       if (mounted) setState(() { _error = e.message; _uploading = false; });
     } catch (e) {
@@ -276,6 +301,27 @@ class _RecordScreenState extends State<RecordScreen> with TickerProviderStateMix
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ],
+              // Thread banner
+              if (widget.threadId != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppTheme.accent.withOpacity(0.2)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.segment_rounded, color: AppTheme.accent, size: 20),
+                      SizedBox(width: 10),
+                      Text('Adding to voice thread',
+                        style: TextStyle(color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
