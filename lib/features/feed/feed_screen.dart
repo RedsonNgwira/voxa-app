@@ -9,6 +9,7 @@ import '../../core/services.dart';
 import '../../core/me_provider.dart';
 import '../../core/phoenix_socket.dart';
 import 'clip_card.dart';
+import 'thread_feed_card.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -105,30 +106,49 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       final futures = <Future>[
         client.query(QueryOptions(document: gql(kFeed), fetchPolicy: FetchPolicy.networkOnly)),
         client.query(QueryOptions(document: gql(kFollowingFeed), fetchPolicy: FetchPolicy.networkOnly)),
+        client.query(QueryOptions(document: gql(kThreadFeed), variables: {'limit': 20}, fetchPolicy: FetchPolicy.networkOnly)),
       ];
       if (_showEmber) {
         futures.add(client.query(QueryOptions(document: gql(kEmberFeed), fetchPolicy: FetchPolicy.networkOnly)));
       }
-      final results = await Future.wait(futures)
-          .timeout(const Duration(seconds: 15));
+      final results = await Future.wait(futures).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
         final r0 = results[0] as QueryResult;
         final r1 = results[1] as QueryResult;
+        final r2 = results[2] as QueryResult;
+
+        List<Map<String, dynamic>> clips = [];
         if (!r0.hasException && r0.data != null) {
-          _forYou = (r0.data!['feed'] as List? ?? [])
-              .whereType<Map<String, dynamic>>().toList();
-          FeedCache.save(_forYou);
+          clips = (r0.data!['feed'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
         }
+
+        // Merge complete threads into For You feed, sorted by insertedAt
+        List<Map<String, dynamic>> threads = [];
+        if (!r2.hasException && r2.data != null) {
+          threads = (r2.data!['threadFeed'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
+        }
+
+        // Tag each item with _type so the list builder knows what to render
+        final tagged = [
+          ...clips.map((c) => {...c, '_type': 'clip'}),
+          ...threads.map((t) => {...t, '_type': 'thread'}),
+        ]..sort((a, b) {
+          final aDate = DateTime.tryParse((a['insertedAt'] as String? ?? '').replaceAll(' ', 'T')) ?? DateTime(0);
+          final bDate = DateTime.tryParse((b['insertedAt'] as String? ?? '').replaceAll(' ', 'T')) ?? DateTime(0);
+          return bDate.compareTo(aDate);
+        });
+
+        _forYou = tagged;
+        FeedCache.save(clips); // cache only clips
+
         if (!r1.hasException && r1.data != null) {
-          _following = (r1.data!['followingFeed'] as List? ?? [])
-              .whereType<Map<String, dynamic>>().toList();
+          _following = (r1.data!['followingFeed'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
         }
-        if (_showEmber && results.length > 2) {
-          final r2 = results[2] as QueryResult;
-          if (!r2.hasException && r2.data != null) {
-            _ember = (r2.data!['emberFeed'] as List? ?? [])
-                .whereType<Map<String, dynamic>>().toList();
+        if (_showEmber && results.length > 3) {
+          final r3 = results[3] as QueryResult;
+          if (!r3.hasException && r3.data != null) {
+            _ember = (r3.data!['emberFeed'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
           }
         }
         _loading = false;
@@ -444,7 +464,13 @@ class _ClipListState extends State<_ClipList> with AutomaticKeepAliveClientMixin
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8, bottom: 80),
       itemCount: widget.clips.length,
-      itemBuilder: (_, i) => ClipCard(clip: widget.clips[i]),
+      itemBuilder: (_, i) {
+        final item = widget.clips[i];
+        if (item['_type'] == 'thread') {
+          return ThreadFeedCard(thread: item);
+        }
+        return ClipCard(clip: item);
+      },
     );
   }
 }

@@ -328,7 +328,7 @@ query MyThreads {
 const String kThreadFeed = r'''
 query ThreadFeed($limit: Int) {
   threadFeed(limit: $limit) {
-    id title clipCount isComplete insertedAt
+    id title clipCount totalDuration isComplete insertedAt
     user { id name username }
     clips {
       id audioPath duration waveform threadPosition insertedAt
