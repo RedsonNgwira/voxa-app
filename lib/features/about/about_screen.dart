@@ -51,7 +51,7 @@ class AboutScreen extends StatelessWidget {
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () => launchUrl(
-                  Uri.parse('https://twitter.com/redsonngwira'),
+                  Uri.parse('https://twitter.com/RedsonNgwira'),
                   mode: LaunchMode.externalApplication,
                 ),
                 child: Container(
@@ -66,7 +66,7 @@ class AboutScreen extends StatelessWidget {
                     children: [
                       Icon(Icons.alternate_email, size: 16, color: AppTheme.accent),
                       SizedBox(width: 6),
-                      Text('redsonngwira',
+                      Text('RedsonNgwira',
                           style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.w600)),
                     ],
                   ),
