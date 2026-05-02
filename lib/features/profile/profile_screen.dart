@@ -37,16 +37,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _load() async {
     final client = GraphQLProvider.of(context).value;
-    final results = await Future.wait([
-      client.query(QueryOptions(document: gql(kUser), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
-      client.query(QueryOptions(document: gql(kUserClips), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      if (!results[0].hasException) _user = results[0].data!['user'] as Map<String, dynamic>?;
-      if (!results[1].hasException) _clips = (results[1].data!['userClips'] as List).cast<Map<String, dynamic>>();
-      _loading = false;
-    });
+    try {
+      final results = await Future.wait([
+        client.query(QueryOptions(document: gql(kUser), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
+        client.query(QueryOptions(document: gql(kUserClips), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
+      ]).timeout(const Duration(seconds: 15));
+      if (!mounted) return;
+      setState(() {
+        if (!results[0].hasException && results[0].data != null) {
+          _user = results[0].data!['user'] as Map<String, dynamic>?;
+        }
+        if (!results[1].hasException && results[1].data != null) {
+          _clips = (results[1].data!['userClips'] as List? ?? [])
+              .whereType<Map<String, dynamic>>().toList();
+        }
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      debugPrint('Profile load error: $e');
+    }
 
     // Auto-play voice bio 3s for other users
     final me = MeProvider.of(context);
