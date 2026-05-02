@@ -457,7 +457,7 @@ class _ReplySheetState extends State<_ReplySheet> {
   Future<void> _start() async {
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) { setState(() => _error = 'Mic permission denied'); return; }
-    final dir = await getTemporaryDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/reply_${DateTime.now().millisecondsSinceEpoch}.m4a';
     await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
     _timer = Timer.periodic(const Duration(milliseconds: 100), (_) async {
