@@ -284,6 +284,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: TextButton.icon(
+                              onPressed: () => context.push('/about'),
+                              icon: const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.textDim),
+                              label: const Text('About Voxa', style: TextStyle(color: AppTheme.textDim, fontSize: 13)),
+                            ),
+                          ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton.icon(
                               onPressed: () => _logout(context),
                               icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.redAccent),
                               label: const Text('Log out', style: TextStyle(color: Colors.redAccent, fontSize: 13)),

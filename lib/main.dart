@@ -30,6 +30,7 @@ import 'features/campfire/campfire_screen.dart';
 import 'features/threads/threads_screen.dart';
 import 'features/threads/thread_detail_screen.dart';
 import 'features/whispers/whisper_screen.dart';
+import 'features/about/about_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -117,6 +118,7 @@ class _VoxaAppState extends State<VoxaApp> {
           GoRoute(path: '/threads', builder: (_, __) => const ThreadsScreen()),
           GoRoute(path: '/thread/:id', builder: (_, s) => ThreadDetailScreen(id: s.pathParameters['id']!)),
           GoRoute(path: '/whispers/:clipId', builder: (_, s) => WhisperScreen(clipId: s.pathParameters['clipId']!)),
+          GoRoute(path: '/about', builder: (_, __) => const AboutScreen()),
         ],
       ),
     ],
