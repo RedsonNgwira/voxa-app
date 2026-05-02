@@ -37,7 +37,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     ));
     if (!mounted) return;
     setState(() {
-      if (!result.hasException) _clips = (result.data!['discover'] as List).cast<Map<String, dynamic>>();
+      if (!result.hasException && result.data != null) {
+        _clips = (result.data!['discover'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
+      }
       _loading = false;
     });
   }

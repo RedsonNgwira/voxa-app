@@ -47,7 +47,7 @@ class _VoiceBioScreenState extends State<VoiceBioScreen> {
       setState(() => _error = 'Microphone permission denied');
       return;
     }
-    final dir = await getTemporaryDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/voxa_bio_${DateTime.now().millisecondsSinceEpoch}.m4a';
     await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
     _timer = Timer.periodic(const Duration(milliseconds: 100), (_) async {

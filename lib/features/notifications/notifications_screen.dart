@@ -52,7 +52,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final result = await client.query(QueryOptions(document: gql(kNotifications), fetchPolicy: FetchPolicy.networkOnly));
     if (!mounted) return;
     setState(() {
-      if (!result.hasException) _notifications = (result.data!['notifications'] as List).cast<Map<String, dynamic>>();
+      if (!result.hasException && result.data != null) {
+        _notifications = (result.data!['notifications'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
+      }
       _loading = false;
     });
   }
@@ -113,7 +115,13 @@ class _NotifTile extends StatelessWidget {
           ? Text(_timeAgo(notif['insertedAt'] as String), style: Theme.of(context).textTheme.bodyMedium)
           : null,
       onTap: notif['relatedPostId'] != null
-          ? () => context.push('/clip/${notif['relatedPostId']}')
+          ? () {
+              if (type == 'WHISPER') {
+                context.push('/whispers/${notif['relatedPostId']}');
+              } else {
+                context.push('/clip/${notif['relatedPostId']}');
+              }
+            }
           : null,
     );
   }

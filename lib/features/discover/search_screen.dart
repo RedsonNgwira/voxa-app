@@ -46,9 +46,9 @@ class _SearchScreenState extends State<SearchScreen> {
     ));
     if (!mounted) return;
     setState(() {
-      if (!result.hasException) {
-        _users = (result.data!['search']['users'] as List).cast<Map<String, dynamic>>();
-        _clips = (result.data!['search']['clips'] as List).cast<Map<String, dynamic>>();
+      if (!result.hasException && result.data != null) {
+        _users = (result.data!['search']['users'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
+        _clips = (result.data!['search']['clips'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
       }
       _loading = false;
     });

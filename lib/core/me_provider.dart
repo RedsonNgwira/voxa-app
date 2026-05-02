@@ -42,7 +42,7 @@ class _MeLoaderState extends State<MeLoader> {
       document: gql(kMe),
       fetchPolicy: FetchPolicy.networkOnly,
     ));
-    if (!mounted || result.hasException) return;
+    if (!mounted || result.hasException || result.data == null) return;
     setState(() => _me = result.data!['me'] as Map<String, dynamic>?);
   }
 

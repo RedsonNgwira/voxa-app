@@ -20,6 +20,12 @@ class _CirclesScreenState extends State<CirclesScreen> {
   final _nameController = TextEditingController();
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
@@ -30,7 +36,7 @@ class _CirclesScreenState extends State<CirclesScreen> {
     final result = await client.query(QueryOptions(document: gql(kMyCircles), fetchPolicy: FetchPolicy.networkOnly));
     if (!mounted) return;
     setState(() {
-      if (!result.hasException) _circles = (result.data!['myCircles'] as List).cast<Map<String, dynamic>>();
+      if (!result.hasException && result.data != null) _circles = (result.data!['myCircles'] as List? ?? []).whereType<Map<String, dynamic>>().toList();
       _loading = false;
     });
   }
@@ -83,20 +89,20 @@ class _CirclesScreenState extends State<CirclesScreen> {
                   onPressed: () async {
                     final name = _nameController.text.trim();
                     if (name.isEmpty) return;
-                    final client = GraphQLProvider.of(context).value;
+                    final client = GraphQLProvider.of(ctx).value;
                     final result = await client.mutate(MutationOptions(
                       document: gql(kCreateCircle),
                       variables: {'name': name, 'isPrivate': _isPrivate},
                     ));
-                    if (!mounted) return;
+                    if (!ctx.mounted) return;
                     if (result.hasException) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      ScaffoldMessenger.of(ctx).showSnackBar(
                         SnackBar(content: Text(result.exception?.graphqlErrors.firstOrNull?.message ?? 'Failed')),
                       );
                       return;
                     }
                     _nameController.clear();
-                    Navigator.pop(context);
+                    Navigator.pop(ctx);
                     _load();
                   },
                   child: const Text('Create'),
@@ -231,7 +237,7 @@ class _CircleDetailScreenState extends State<CircleDetailScreen> {
     ));
     if (!mounted) return;
     setState(() {
-      if (!result.hasException) _circle = result.data!['circle'] as Map<String, dynamic>?;
+      if (!result.hasException && result.data != null) _circle = result.data!['circle'] as Map<String, dynamic>?;
       _loading = false;
     });
   }
