@@ -29,43 +29,12 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   StreamSubscription? _pulseSub;
   String? _activeMood;
 
+  bool _initialLoadDone = false;
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final cached = await FeedCache.load();
-      if (cached.isNotEmpty && mounted) setState(() { _forYou = cached; _loading = false; });
-      _load();
-    });
-  }
-
-  void _subscribeSocket() {
-    final me = MeProvider.of(context);
-    if (me == null || _feedSub != null) return;
-    final userId = me['id'] as String?;
-    if (userId == null) return;
-    _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
-      if (!mounted) return;
-      if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
-        setState(() => _hasNewPosts = true);
-      } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
-        _load();
-      }
-    });
-    // Pulse haptic — someone felt your voice (RULE_003: no count, no sender)
-    _pulseSub = phoenixSocket.subscribe('pulse:$userId').listen((event) {
-      if (!mounted) return;
-      HapticFeedback.mediumImpact();
-    });
-  }
-
-  @override
-  void dispose() {
-    _feedSub?.cancel();
-    _pulseSub?.cancel();
-    _tabs?.dispose();
-    super.dispose();
   }
 
   @override
@@ -82,6 +51,43 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       });
     }
     _tabs ??= TabController(length: showEmber ? 3 : 2, vsync: this);
+
+    if (!_initialLoadDone) {
+      _initialLoadDone = true;
+      FeedCache.load().then((cached) {
+        if (cached.isNotEmpty && mounted) {
+          setState(() { _forYou = cached; _loading = false; });
+        }
+      });
+      _load();
+    }
+  }
+
+  void _subscribeSocket() {
+    final me = MeProvider.of(context);
+    if (me == null || _feedSub != null) return;
+    final userId = me['id'] as String?;
+    if (userId == null) return;
+    _feedSub = phoenixSocket.subscribe('feed:$userId').listen((event) {
+      if (!mounted) return;
+      if (event['event'] == 'new_post' || event['event'] == 'new_clip') {
+        setState(() => _hasNewPosts = true);
+      } else if (event['event'] == 'post_expired' || event['event'] == 'clip_expired') {
+        _load();
+      }
+    });
+    _pulseSub = phoenixSocket.subscribe('pulse:$userId').listen((event) {
+      if (!mounted) return;
+      HapticFeedback.mediumImpact();
+    });
+  }
+
+  @override
+  void dispose() {
+    _feedSub?.cancel();
+    _pulseSub?.cancel();
+    _tabs?.dispose();
+    super.dispose();
   }
 
   bool _checkEmberFeed(Map<String, dynamic>? me) {
