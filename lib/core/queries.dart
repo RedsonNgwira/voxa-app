@@ -312,6 +312,16 @@ mutation CreateEcho($echoOfId: ID!, $introAudioUrl: String!, $introCloudinaryPub
 ''';
 
 // Voice threads
+const String kUserThreads = r'''
+query UserThreads($username: String!) {
+  userThreads(username: $username) {
+    id title clipCount totalDuration isComplete insertedAt
+    user { id name username }
+    clips { id audioPath duration waveform threadPosition }
+  }
+}
+''';
+
 const String kMyThreads = r'''
 query MyThreads {
   myThreads {

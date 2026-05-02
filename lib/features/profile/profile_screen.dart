@@ -8,6 +8,8 @@ import '../../core/theme.dart';
 import '../../core/me_provider.dart';
 import '../../main.dart';
 import '../feed/clip_card.dart';
+import '../feed/thread_feed_card.dart';
+import '../feed/thread_feed_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String username;
@@ -41,16 +43,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final results = await Future.wait([
         client.query(QueryOptions(document: gql(kUser), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
         client.query(QueryOptions(document: gql(kUserClips), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
+        client.query(QueryOptions(document: gql(kUserThreads), variables: {'username': widget.username}, fetchPolicy: FetchPolicy.networkOnly)),
       ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
       setState(() {
         if (!results[0].hasException && results[0].data != null) {
           _user = results[0].data!['user'] as Map<String, dynamic>?;
         }
+
+        List<Map<String, dynamic>> clips = [];
         if (!results[1].hasException && results[1].data != null) {
-          _clips = (results[1].data!['userClips'] as List? ?? [])
+          clips = (results[1].data!['userClips'] as List? ?? [])
               .whereType<Map<String, dynamic>>().toList();
         }
+
+        List<Map<String, dynamic>> threads = [];
+        if (!results[2].hasException && results[2].data != null) {
+          threads = (results[2].data!['userThreads'] as List? ?? [])
+              .whereType<Map<String, dynamic>>().toList();
+        }
+
+        // Merge clips + completed threads sorted by insertedAt
+        _clips = [
+          ...clips.map((c) => {...c, '_type': 'clip'}),
+          ...threads.map((t) => {...t, '_type': 'thread'}),
+        ]..sort((a, b) {
+          final aDate = DateTime.tryParse((a['insertedAt'] as String? ?? '').replaceAll(' ', 'T')) ?? DateTime(0);
+          final bDate = DateTime.tryParse((b['insertedAt'] as String? ?? '').replaceAll(' ', 'T')) ?? DateTime(0);
+          return bDate.compareTo(aDate);
+        });
+
         _loading = false;
       });
     } catch (e) {
@@ -340,7 +362,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) => ClipCard(clip: _clips[i]),
+                  (context, i) {
+                    final item = _clips[i];
+                    if (item['_type'] == 'thread') {
+                      return ThreadFeedCard(thread: item);
+                    }
+                    return ClipCard(clip: item);
+                  },
                   childCount: _clips.length,
                 ),
               ),
